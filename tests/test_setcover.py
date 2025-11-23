@@ -21,22 +21,26 @@ from rowvoi.setcover import (
 @pytest.fixture
 def sample_df():
     """Sample DataFrame for testing."""
-    return pd.DataFrame({
-        "A": [1, 1, 2, 2],
-        "B": [3, 4, 3, 4],
-        "C": [5, 5, 6, 6],
-        "D": [7, 8, 9, 10],
-    })
+    return pd.DataFrame(
+        {
+            "A": [1, 1, 2, 2],
+            "B": [3, 4, 3, 4],
+            "C": [5, 5, 6, 6],
+            "D": [7, 8, 9, 10],
+        }
+    )
 
 
 @pytest.fixture
 def simple_df():
     """Return simple DataFrame for basic testing."""
-    return pd.DataFrame({
-        "X": [1, 1],
-        "Y": [2, 3],
-        "Z": [4, 4],
-    })
+    return pd.DataFrame(
+        {
+            "X": [1, 1],
+            "Y": [2, 3],
+            "Z": [4, 4],
+        }
+    )
 
 
 class TestSetCoverResult:
@@ -68,9 +72,7 @@ class TestSolveSetCover:
 
     def test_greedy_algorithm(self, simple_df):
         """Test greedy algorithm through solve_set_cover."""
-        result = solve_set_cover(
-            simple_df, [0, 1], algorithm=SetCoverAlgorithm.GREEDY
-        )
+        result = solve_set_cover(simple_df, [0, 1], algorithm=SetCoverAlgorithm.GREEDY)
 
         assert isinstance(result, SetCoverResult)
         assert result.algorithm == "greedy"
@@ -80,9 +82,7 @@ class TestSolveSetCover:
 
     def test_exact_algorithm(self, simple_df):
         """Test exact algorithm through solve_set_cover."""
-        result = solve_set_cover(
-            simple_df, [0, 1], algorithm=SetCoverAlgorithm.EXACT
-        )
+        result = solve_set_cover(simple_df, [0, 1], algorithm=SetCoverAlgorithm.EXACT)
 
         assert result.algorithm == "exact"
         assert result.is_optimal is True
@@ -122,17 +122,21 @@ class TestILPSetCoverSolver:
 
     def test_pulp_unavailable(self, simple_df):
         """Test ILP solver fallback when pulp is unavailable."""
-        with patch.dict('sys.modules', {'pulp': None}):
-            with patch('rowvoi.setcover.ILPSetCoverSolver.solve') as mock_solve:
+        with patch.dict("sys.modules", {"pulp": None}):
+            with patch("rowvoi.setcover.ILPSetCoverSolver.solve") as mock_solve:
                 from rowvoi.setcover import ILPSetCoverSolver
+
                 solver = ILPSetCoverSolver()
 
                 # Mock the ImportError behavior
                 mock_result = SetCoverResult(
-                    columns=["Y"], algorithm="ilp_fallback_greedy",
-                    is_optimal=False, objective_value=1.0,
-                    computation_time=0.1, iterations=1,
-                    metadata={"error": "pulp not available, used greedy fallback"}
+                    columns=["Y"],
+                    algorithm="ilp_fallback_greedy",
+                    is_optimal=False,
+                    objective_value=1.0,
+                    computation_time=0.1,
+                    iterations=1,
+                    metadata={"error": "pulp not available, used greedy fallback"},
                 )
                 mock_solve.return_value = mock_result
 
@@ -144,9 +148,7 @@ class TestILPSetCoverSolver:
         """Test ILP solver with custom parameters."""
         solver = ILPSetCoverSolver(random_seed=42)
         result = solver.solve(
-            sample_df, [0, 1, 2, 3],
-            time_limit=5.0,
-            gap_tolerance=0.01
+            sample_df, [0, 1, 2, 3], time_limit=5.0, gap_tolerance=0.01
         )
 
         assert result.algorithm == "ilp"
@@ -171,10 +173,11 @@ class TestSimulatedAnnealingSetCoverSolver:
         """Test SA with custom parameters."""
         solver = SimulatedAnnealingSetCoverSolver(random_seed=42)
         result = solver.solve(
-            sample_df, [0, 1, 2],
+            sample_df,
+            [0, 1, 2],
             initial_temperature=200.0,
             cooling_rate=0.9,
-            max_iterations=500
+            max_iterations=500,
         )
 
         assert result.algorithm == "simulated_annealing"
@@ -209,11 +212,12 @@ class TestGeneticAlgorithmSetCoverSolver:
         """Test GA with custom parameters."""
         solver = GeneticAlgorithmSetCoverSolver(random_seed=42)
         result = solver.solve(
-            sample_df, [0, 1, 2, 3],
+            sample_df,
+            [0, 1, 2, 3],
             population_size=20,
             max_generations=50,
             mutation_rate=0.2,
-            crossover_rate=0.9
+            crossover_rate=0.9,
         )
 
         assert result.algorithm == "genetic_algorithm"
@@ -224,9 +228,7 @@ class TestGeneticAlgorithmSetCoverSolver:
     def test_ga_population_initialization(self, sample_df):
         """Test that GA properly initializes population."""
         solver = GeneticAlgorithmSetCoverSolver(random_seed=42)
-        universe, coverage = solver._build_universe_and_coverage(
-            sample_df, [0, 1, 2]
-        )
+        universe, coverage = solver._build_universe_and_coverage(sample_df, [0, 1, 2])
 
         population = solver._initialize_population(
             10, list(coverage.keys()), universe, coverage
@@ -255,11 +257,12 @@ class TestHybridSetCoverSolver:
         """Test hybrid with custom parameters."""
         solver = HybridSetCoverSolver(random_seed=42)
         result = solver.solve(
-            sample_df, [0, 1, 2],
+            sample_df,
+            [0, 1, 2],
             population_size=15,
             max_generations=100,
             sa_probability=0.5,
-            sa_iterations_per_generation=20
+            sa_iterations_per_generation=20,
         )
 
         assert result.algorithm == "hybrid_sa_ga"
@@ -283,10 +286,11 @@ class TestLPRelaxationSetCoverSolver:
         """Test LP relaxation with custom parameters."""
         solver = LPRelaxationSetCoverSolver(random_seed=42)
         result = solver.solve(
-            sample_df, [0, 1, 2],
+            sample_df,
+            [0, 1, 2],
             rounding_iterations=50,
             alpha_multiplier=1.5,
-            time_limit=10.0
+            time_limit=10.0,
         )
 
         # Should work regardless of whether pulp is available
@@ -333,10 +337,11 @@ class TestMinimalKeyAdvanced:
         """Test passing parameters to algorithms."""
         # Test SA with custom parameters
         result = minimal_key_advanced(
-            sample_df, [0, 1, 2],
+            sample_df,
+            [0, 1, 2],
             algorithm="sa",
             initial_temperature=100.0,
-            max_iterations=200
+            max_iterations=200,
         )
         assert isinstance(result, list)
 
@@ -419,6 +424,7 @@ class TestAlgorithmComparison:
 
                 # Verify solution is valid using is_key
                 from rowvoi.logical import is_key
+
                 assert is_key(sample_df, rows, result), f"{algorithm} failed"
 
             except ImportError:
@@ -457,11 +463,13 @@ class TestEdgeCases:
 
     def test_identical_rows(self):
         """Test handling of identical rows (no distinguishing columns)."""
-        df = pd.DataFrame({
-            "A": [1, 1],
-            "B": [2, 2],
-            "C": [3, 3],
-        })
+        df = pd.DataFrame(
+            {
+                "A": [1, 1],
+                "B": [2, 2],
+                "C": [3, 3],
+            }
+        )
 
         # All algorithms should handle this gracefully
         for algorithm in ["greedy", "exact", "sa"]:
@@ -484,8 +492,7 @@ class TestEdgeCases:
         # Test faster algorithms
         for algorithm in ["greedy", "sa"]:
             result = minimal_key_advanced(
-                df, rows, algorithm=algorithm,
-                random_seed=42, max_iterations=100
+                df, rows, algorithm=algorithm, random_seed=42, max_iterations=100
             )
 
             assert isinstance(result, list)
@@ -508,4 +515,3 @@ class TestEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__])
-

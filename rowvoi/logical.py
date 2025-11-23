@@ -28,7 +28,7 @@ def minimal_key_advanced(
     rows: Sequence[RowIndex],
     algorithm: str = "greedy",
     candidate_cols: Sequence[ColName] | None = None,
-    **kwargs
+    **kwargs,
 ) -> list[ColName]:
     """Find minimal column set using advanced algorithms.
 
@@ -93,7 +93,7 @@ def minimal_key_advanced(
         rows=rows,
         algorithm=algorithm_map[algorithm],
         candidate_cols=candidate_cols,
-        **kwargs
+        **kwargs,
     )
 
     return result.columns
