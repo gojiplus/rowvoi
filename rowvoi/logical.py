@@ -23,6 +23,82 @@ import pandas as pd
 from .types import ColName, RowIndex
 
 
+def minimal_key_advanced(
+    df: pd.DataFrame,
+    rows: Sequence[RowIndex],
+    algorithm: str = "greedy",
+    candidate_cols: Sequence[ColName] | None = None,
+    **kwargs
+) -> list[ColName]:
+    """Find minimal column set using advanced algorithms.
+    
+    This function provides access to multiple algorithms for the minimal
+    set cover problem, offering different tradeoffs between solution quality
+    and computation time.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The data table.
+    rows : Sequence[RowIndex]
+        Row indices to distinguish.
+    algorithm : str
+        Algorithm to use. Options:
+        - "greedy": Fast O(log n) approximation (default)
+        - "exact": Optimal solution via brute force
+        - "ilp": Integer Linear Programming (requires pulp)
+        - "sa": Simulated Annealing metaheuristic
+        - "ga": Genetic Algorithm metaheuristic
+        - "hybrid": Hybrid SA+GA approach
+        - "lp": Linear Programming relaxation with rounding
+    candidate_cols : Sequence[ColName], optional
+        Columns to consider. If None, use all columns.
+    **kwargs
+        Algorithm-specific parameters.
+        
+    Returns
+    -------
+    list[ColName]
+        Column names that distinguish the rows.
+        
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from rowvoi import minimal_key_advanced
+    >>> df = pd.DataFrame({"A": [1, 1], "B": [2, 3]})
+    >>> minimal_key_advanced(df, [0, 1], algorithm="greedy")
+    ['B']
+    >>> minimal_key_advanced(df, [0, 1], algorithm="ilp")
+    ['B']
+    """
+    from .setcover import SetCoverAlgorithm, solve_set_cover
+    
+    # Map string names to enum values
+    algorithm_map = {
+        "greedy": SetCoverAlgorithm.GREEDY,
+        "exact": SetCoverAlgorithm.EXACT,
+        "ilp": SetCoverAlgorithm.ILP,
+        "sa": SetCoverAlgorithm.SIMULATED_ANNEALING,
+        "ga": SetCoverAlgorithm.GENETIC_ALGORITHM,
+        "hybrid": SetCoverAlgorithm.HYBRID_SA_GA,
+        "lp": SetCoverAlgorithm.LP_RELAXATION,
+    }
+    
+    if algorithm not in algorithm_map:
+        available = ", ".join(algorithm_map.keys())
+        raise ValueError(f"Unknown algorithm '{algorithm}'. Available: {available}")
+    
+    result = solve_set_cover(
+        df=df,
+        rows=rows,
+        algorithm=algorithm_map[algorithm],
+        candidate_cols=candidate_cols,
+        **kwargs
+    )
+    
+    return result.columns
+
+
 def is_key(
     df: pd.DataFrame,
     rows: Sequence[RowIndex],

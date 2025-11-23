@@ -46,6 +46,12 @@ from .logical import (
     is_key,
     minimal_key_exact,
     minimal_key_greedy,
+    minimal_key_advanced,
+)
+from .setcover import (
+    SetCoverAlgorithm,
+    SetCoverResult,
+    solve_set_cover,
 )
 from .mi import (
     best_feature_by_candidate_mi,
@@ -71,6 +77,11 @@ __all__ = [
     "is_key",
     "minimal_key_exact",
     "minimal_key_greedy",
+    "minimal_key_advanced",
+    # set cover algorithms
+    "SetCoverAlgorithm",
+    "SetCoverResult", 
+    "solve_set_cover",
     # mutual information (candidate set)
     "candidate_mi",
     "best_feature_by_candidate_mi",
