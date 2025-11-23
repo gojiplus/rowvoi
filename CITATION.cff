@@ -1,0 +1,47 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: 'RowVoi: Finding minimal distinguishing columns and the next best feature to query'
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Gaurav
+    family-names: Sood
+    email: contact@gsood.com
+    orcid: 'https://orcid.org/0000-0002-2764-5127'
+identifiers:
+  - type: url
+    value: 'https://github.com/gojiplus/rowvoi'
+    description: GitHub Repository
+repository-code: 'https://github.com/gojiplus/rowvoi'
+url: 'https://github.com/gojiplus/rowvoi'
+repository: 'https://github.com/gojiplus/rowvoi'
+abstract: >-
+  RowVoi provides a set of tools for interactive
+  disambiguation of rows in a dataset using value of
+  information policies. Given a small set of candidate rows,
+  it helps determine which columns (features) must be
+  observed to uniquely distinguish these rows, using both
+  deterministic set cover algorithms and probabilistic
+  ε-relaxed approaches. The package implements multiple
+  algorithms including exact and greedy minimal key finding,
+  mutual information-based feature selection, and adaptive
+  policies that respond to observations.
+keywords:
+  - data-disambiguation
+  - value-of-information
+  - feature-selection
+  - interactive-ml
+  - data-cleaning
+  - entity-resolution
+  - mutual-information
+  - set-cover
+  - probabilistic-set-cover
+  - adaptive-submodular
+license: MIT
+commit: 9fdd040
+version: 0.1.0
+date-released: '2025-01-01'

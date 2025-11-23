@@ -1,4 +1,4 @@
-# rowvoi
+# rowvoi: finding minimal distinguishing columns and the next best feature to query
 
 [![PyPI version](https://badge.fury.io/py/rowvoi.svg)](https://badge.fury.io/py/rowvoi)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -328,4 +328,23 @@ make docs
 ```bash
 make ci-docker
 ```
+
+---
+
+## Citation
+
+If you use `rowvoi` in your research, please cite it using:
+
+```bibtex
+@software{sood2025rowvoi,
+  author       = {Sood, Gaurav},
+  title        = {RowVoi: Row-wise Value of Information for Data Collection},
+  year         = {2025},
+  publisher    = {GitHub},
+  url          = {https://github.com/gojiplus/rowvoi},
+  version      = {0.1.0}
+}
+```
+
+Or use the [CITATION.cff](CITATION.cff) file for automatic citation generation in GitHub.
 
