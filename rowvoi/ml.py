@@ -8,9 +8,10 @@ values. This is CONDITIONAL prediction, not blind guessing.
 KEY INSIGHT: The model uses learned mutual information patterns to predict expected
 information gain CONDITIONAL on what's already been observed in the current case.
 
-Examples:
+Examples
+--------
 - Interactive interviews: Given responses so far, what question provides most info?
-- Sequential experiments: Given current results, which test should we run next?  
+- Sequential experiments: Given current results, which test should we run next?
 - Adaptive diagnosis: Given initial symptoms, which additional test is most valuable?
 
 🎯 For Use Case 1 (optimizing collection when complete information is available),
