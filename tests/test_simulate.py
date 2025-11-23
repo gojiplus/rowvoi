@@ -48,6 +48,7 @@ class TestSampleCandidateSets:
         """Test reproducibility with random seed."""
         # Use the rng parameter for reproducibility
         import random
+
         rng1 = random.Random(42)
         sets1 = sample_candidate_sets(
             len(sample_df), subset_size=2, n_samples=5, rng=rng1
@@ -72,7 +73,7 @@ class TestAcquisitionResult:
             steps_used=2,
             unique_identified=True,
             optimal_steps=2,
-            cols_used=["A", "B"]
+            cols_used=["A", "B"],
         )
 
         assert result.subset_size == 3
@@ -93,9 +94,7 @@ class TestBenchmarkPolicy:
         # Test with subset sizes
         subset_sizes = [2, 3]
 
-        result = benchmark_policy(
-            sample_df, model, subset_sizes, n_samples=3
-        )
+        result = benchmark_policy(sample_df, model, subset_sizes, n_samples=3)
 
         # Should return dict keyed by subset size
         assert isinstance(result, dict)
@@ -119,9 +118,7 @@ class TestBenchmarkPolicy:
         model = RowVoiModel(noise=0.1).fit(sample_df)
 
         subset_sizes = [2]
-        result = benchmark_policy(
-            sample_df, model, subset_sizes, n_samples=5
-        )
+        result = benchmark_policy(sample_df, model, subset_sizes, n_samples=5)
 
         # Should have reasonable results
         assert len(result[2]) == 5
@@ -136,9 +133,7 @@ class TestBenchmarkPolicy:
         model = RowVoiModel().fit(sample_df)
 
         subset_sizes = [1]
-        result = benchmark_policy(
-            sample_df, model, subset_sizes, n_samples=3
-        )
+        result = benchmark_policy(sample_df, model, subset_sizes, n_samples=3)
 
         # Single-row subsets should need 0 steps
         for acq_result in result[1]:
@@ -168,7 +163,7 @@ class TestBenchmarkPolicy:
             [2],
             n_samples=2,
             objective="mi_over_cost",
-            feature_costs=feature_costs
+            feature_costs=feature_costs,
         )
 
         # Should still work with costs
@@ -184,14 +179,10 @@ class TestBenchmarkPolicy:
 
         # Run with same seed twice
         rng1 = random.Random(42)
-        result1 = benchmark_policy(
-            sample_df, model, [2], n_samples=3, rng=rng1
-        )
+        result1 = benchmark_policy(sample_df, model, [2], n_samples=3, rng=rng1)
 
         rng2 = random.Random(42)
-        result2 = benchmark_policy(
-            sample_df, model, [2], n_samples=3, rng=rng2
-        )
+        result2 = benchmark_policy(sample_df, model, [2], n_samples=3, rng=rng2)
 
         # Results should be identical
         assert len(result1[2]) == len(result2[2])

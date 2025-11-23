@@ -56,6 +56,15 @@ from .ml import (
     FeatureSuggestion,
     RowVoiModel,
 )
+from .probcover import (
+    AdaptiveFeatureSuggestion,
+    ProbabilisticCoverageResult,
+    estimate_pair_separation_probs,
+    evaluate_coverage,
+    greedy_epsilon_cover,
+    probabilistic_minimal_key,
+    suggest_next_feature_epsilon,
+)
 from .setcover import (
     SetCoverAlgorithm,
     SetCoverResult,
@@ -82,6 +91,14 @@ __all__ = [
     "SetCoverAlgorithm",
     "SetCoverResult",
     "solve_set_cover",
+    # probabilistic cover
+    "probabilistic_minimal_key",
+    "suggest_next_feature_epsilon",
+    "ProbabilisticCoverageResult",
+    "AdaptiveFeatureSuggestion",
+    "estimate_pair_separation_probs",
+    "evaluate_coverage",
+    "greedy_epsilon_cover",
     # mutual information (candidate set)
     "candidate_mi",
     "best_feature_by_candidate_mi",

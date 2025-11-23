@@ -53,7 +53,6 @@ except ImportError:
     exit(1)
 
 
-
 def create_noisy_version(df: pd.DataFrame, noise_level: float = 0.1) -> pd.DataFrame:
     """Create a noisy version of dataset to simulate measurement uncertainty."""
     noisy_df = df.copy()
