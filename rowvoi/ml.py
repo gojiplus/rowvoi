@@ -1,14 +1,29 @@
 """Model‑based value‑of‑information routines for rowvoi.
 
+🔮 USE CASE: Sequential Conditional Selection (Informed Prediction)
+This module solves Use Case 2 where you make sequential column selection decisions
+based on learned patterns from historical data combined with currently observed
+values. This is CONDITIONAL prediction, not blind guessing.
+
+KEY INSIGHT: The model uses learned mutual information patterns to predict expected
+information gain CONDITIONAL on what's already been observed in the current case.
+
+Examples:
+- Interactive interviews: Given responses so far, what question provides most info?
+- Sequential experiments: Given current results, which test should we run next?  
+- Adaptive diagnosis: Given initial symptoms, which additional test is most valuable?
+
+🎯 For Use Case 1 (optimizing collection when complete information is available),
+see rowvoi.setcover and minimal_key_* functions instead.
+
 This module defines a small class, :class:`RowVoiModel`, that
-implements a probabilistic policy for sequential feature acquisition.
-It combines global frequency information from a reference dataset,
-optionally performs simple discretization of numeric columns, and
-supports a basic measurement noise model.  Using this information,
-the model can rank candidate features by their expected mutual
-information with the unknown row identity (given a
-:class:`~rowvoi.types.CandidateState`) and simulate an interactive
-disambiguation session.
+implements a conditional prediction policy for sequential feature acquisition.
+It learns patterns from historical data about mutual information relationships,
+then applies these patterns conditionally based on current observations.
+Using a :class:`~rowvoi.types.CandidateState` that captures what columns
+have been observed and their values, the model predicts which additional
+column will provide the most information gain for distinguishing the
+remaining candidate rows.
 
 The design is inspired by the active feature acquisition literature
 but kept deliberately simple for ease of understanding and extension.

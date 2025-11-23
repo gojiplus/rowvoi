@@ -1,5 +1,18 @@
 """Advanced algorithms for the minimal set cover problem.
 
+🎯 USE CASE: Complete Information Optimization (Set Cover)
+This module solves Use Case 1 where you have complete information about all
+column values for your target rows and need to find the optimal minimal set
+that can distinguish them. This is deterministic optimization.
+
+Examples:
+- Medical records: Which fields to retrieve from patient database (all values known)?
+- Database queries: Which columns to query to identify customer segments?
+- Data minimization: Which fields provide identification with minimal privacy risk?
+
+🔮 For Use Case 2 (sequential conditional selection based on partial observations), 
+see rowvoi.ml module and RowVoiModel instead.
+
 This module provides multiple algorithms for solving the NP-hard minimal set cover
 problem, which arises when finding the smallest set of columns that can uniquely
 identify all rows in a candidate set. Different algorithms offer various tradeoffs
