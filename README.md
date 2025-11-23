@@ -6,9 +6,6 @@
 [![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/rowvoi/)
 [![CI](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml/badge.svg)](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml)
 
-Here is the revised README content converted to math-safe Markdown:
-## `rowvoi` 🚀
-
 `rowvoi` is a small library for **row disambiguation** in tabular data:
 
 Given a set of candidate rows and a set of columns,
