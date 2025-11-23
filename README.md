@@ -6,7 +6,7 @@
 [![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/rowvoi/)
 [![CI](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml/badge.svg)](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml)
 
-Interactive disambiguation of rows in a dataset using value-of-information policies.
+Optimal row disambiguation: find the minimum cost columns needed to distinguish between specific rows in your dataset.
 
 ## Business Problems & Use Cases
 
@@ -26,14 +26,32 @@ Interactive disambiguation of rows in a dataset using value-of-information polic
 - **Transaction Investigation**: When multiple transactions could be fraudulent, determine which account details to investigate first
 - **Identity Verification**: Efficiently verify user identity by selecting the minimum set of verification questions needed
 
-## Overview
+## The Problem: Row Disambiguation
 
-The `rowvoi` package provides tools for interactively disambiguating rows in a dataset. Given a small set of candidate rows, it helps answer questions such as:
+**Goal**: Find the minimum cost set of columns needed to uniquely distinguish between specific rows in your dataset.
 
-- Which columns (features) must be observed to uniquely distinguish these rows?
-- How much information does a given feature provide about which row is correct?
-- Under a noise model and frequency priors, which feature should we acquire next to maximize expected reduction in uncertainty?
-- How does a greedy feature acquisition policy compare to the optimal minimal key in practice?
+### **Row Disambiguation**
+You have a dataset with multiple rows and need to collect just enough column values to tell them apart. For example:
+- Customer database: Which fields (email, phone, address) distinguish between these 3 similar customer records?
+- Medical records: Which tests distinguish between these 5 patients with similar symptoms?  
+- Product catalog: Which attributes separate these 10 nearly identical product listings?
+
+### **Two Approaches**
+
+**🎯 Complete Information (Set Cover)**: When you know all column values and want the optimal minimal set
+```python
+# All values known → find provably minimal distinguishing columns
+minimal_cols = minimal_key_exact(df, candidate_rows)
+```
+
+**🔮 Conditional Selection (Model-Based)**: When you've observed some columns and need to predict which column to collect next
+```python
+# Partial observations → predict next best column conditional on current state
+model = RowVoiModel().fit(historical_data)
+next_col = model.suggest_next_feature(df, current_state)
+```
+
+Both approaches minimize collection cost but handle different information scenarios.
 
 ## Installation
 
