@@ -34,21 +34,24 @@ import warnings
 import numpy as np
 import pandas as pd
 
-warnings.filterwarnings('ignore')
+from rowvoi.ml import RowVoiModel
+from rowvoi.types import CandidateState
+
+warnings.filterwarnings("ignore")
 
 # Check if we can import sklearn for datasets
 try:
     from sklearn.datasets import load_breast_cancer, load_iris, load_wine
-    from sklearn.metrics import accuracy_score, f1_score
+
+    # metrics available but not used in demo
     from sklearn.model_selection import train_test_split
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
     print("⚠️ scikit-learn not available - cannot load real datasets")
     exit(1)
 
-from rowvoi.ml import RowVoiModel
-from rowvoi.types import CandidateState
 
 
 def create_noisy_version(df: pd.DataFrame, noise_level: float = 0.1) -> pd.DataFrame:
@@ -56,7 +59,7 @@ def create_noisy_version(df: pd.DataFrame, noise_level: float = 0.1) -> pd.DataF
     noisy_df = df.copy()
 
     for col in df.columns:
-        if df[col].dtype in ['int64', 'float64']:
+        if df[col].dtype in ["int64", "float64"]:
             # Add gaussian noise to numeric columns
             noise = np.random.normal(0, noise_level * df[col].std(), len(df))
             noisy_df[col] = df[col] + noise
@@ -74,7 +77,7 @@ def create_noisy_version(df: pd.DataFrame, noise_level: float = 0.1) -> pd.DataF
 def simulate_survey_design():
     """Simulate designing a customer segmentation survey."""
     print("🔮 SCENARIO 1: Customer Survey Design")
-    print("="*60)
+    print("=" * 60)
     print("""
 BUSINESS CONTEXT:
 You're designing a customer survey to segment users but don't know what
@@ -95,19 +98,28 @@ CHALLENGE:
     questions = {}
     for i, col in enumerate(df.columns[:8]):  # Use subset as "survey questions"
         percentiles = np.percentile(df[col], [25, 75])
-        df[f'Q{i+1}_preference'] = pd.cut(df[col],
-                                        bins=[-np.inf, percentiles[0], percentiles[1], np.inf],
-                                        labels=['Low', 'Medium', 'High'])
-        questions[f'Q{i+1}_preference'] = col
+        df[f"Q{i + 1}_preference"] = pd.cut(
+            df[col],
+            bins=[-np.inf, percentiles[0], percentiles[1], np.inf],
+            labels=["Low", "Medium", "High"],
+        )
+        questions[f"Q{i + 1}_preference"] = col
 
     # Add customer segments
-    df['customer_segment'] = wine.target
-    df['customer_segment'] = df['customer_segment'].map({0: 'Budget', 1: 'Premium', 2: 'Luxury'})
+    df["customer_segment"] = wine.target
+    df["customer_segment"] = df["customer_segment"].map(
+        {0: "Budget", 1: "Premium", 2: "Luxury"}
+    )
 
     # Select only survey questions for analysis
-    survey_df = df[[col for col in df.columns if col.startswith('Q') or col == 'customer_segment']]
+    survey_df = df[
+        [col for col in df.columns if col.startswith("Q") or col == "customer_segment"]
+    ]
 
-    print(f"📊 Simulated survey with {len(survey_df.columns)-1} questions for {len(survey_df)} customers")
+    print(
+        f"📊 Simulated survey with {len(survey_df.columns) - 1} questions for "
+        f"{len(survey_df)} customers"
+    )
     print(f"📋 Questions: {list(survey_df.columns[:-1])}")
 
     # Split into training (past surveys) and test (future surveys)
@@ -124,7 +136,9 @@ CHALLENGE:
     print("-" * 40)
 
     selected_questions = []
-    remaining_questions = [col for col in survey_df.columns if col != 'customer_segment']
+    remaining_questions = [
+        col for col in survey_df.columns if col != "customer_segment"
+    ]
 
     # Iteratively select best questions (simulating survey design process)
     for round_num in range(1, 5):  # Select top 4 questions
@@ -134,7 +148,9 @@ CHALLENGE:
         print(f"\n📝 Survey Design Round {round_num}:")
 
         # Create candidate state with current knowledge INCLUDING observed values
-        candidate_customers = np.random.choice(len(train_df), size=10, replace=False).tolist()
+        candidate_customers = np.random.choice(
+            len(train_df), size=10, replace=False
+        ).tolist()
 
         # Simulate that we've observed some values for these customers
         observed_values = {}
@@ -145,9 +161,10 @@ CHALLENGE:
 
         current_state = CandidateState(
             candidate_rows=candidate_customers,
-            posterior={i: 1.0/len(candidate_customers) for i in candidate_customers},
+            posterior={i: 1.0 / len(candidate_customers) for i in candidate_customers},
             observed_cols=selected_questions.copy(),
-            observed_values=observed_values  # KEY: Current observations condition the prediction
+            # KEY: Current observations condition the prediction
+            observed_values=observed_values,
         )
 
         print(f"   📊 Current observations: {observed_values}")
@@ -161,7 +178,9 @@ CHALLENGE:
             print(f"   📊 Expected information value: {suggestion.voi:.3f}")
             print(f"   📈 Normalized value: {suggestion.normalized_voi:.3f}")
             print("   🧠 This prediction is CONDITIONAL on observed values above!")
-            print("      (Different observations would likely suggest different columns)")
+            print(
+                "      (Different observations would likely suggest different columns)"
+            )
 
             selected_questions.append(suggestion.col)
             remaining_questions.remove(suggestion.col)
@@ -184,12 +203,17 @@ CHALLENGE:
 
     try:
         from rowvoi import minimal_key_greedy
+
         # See how many selected questions are needed to distinguish test customers
-        distinguishing_questions = minimal_key_greedy(test_sample[selected_questions],
-                                                    list(range(len(test_sample))))
+        distinguishing_questions = minimal_key_greedy(
+            test_sample[selected_questions], list(range(len(test_sample)))
+        )
 
         print("✅ Selected questions successfully distinguish test customers")
-        print(f"📊 Questions needed: {len(distinguishing_questions)}/{len(selected_questions)}")
+        print(
+            f"📊 Questions needed: {len(distinguishing_questions)}/"
+            f"{len(selected_questions)}"
+        )
         print(f"💡 Questions used: {distinguishing_questions}")
 
     except Exception as e:
@@ -201,7 +225,7 @@ CHALLENGE:
 def simulate_experimental_design():
     """Simulate designing experimental protocols for compound characterization."""
     print("\n\n🔬 SCENARIO 2: Experimental Design")
-    print("="*60)
+    print("=" * 60)
     print("""
 RESEARCH CONTEXT:
 You're designing experimental protocols to characterize new chemical compounds
@@ -220,9 +244,15 @@ CHALLENGE:
 
     # Select subset of features as "experimental measurements"
     experiments = [
-        'mean radius', 'mean texture', 'mean perimeter',
-        'mean area', 'mean smoothness', 'worst radius',
-        'worst texture', 'worst area', 'worst smoothness'
+        "mean radius",
+        "mean texture",
+        "mean perimeter",
+        "mean area",
+        "mean smoothness",
+        "worst radius",
+        "worst texture",
+        "worst area",
+        "worst smoothness",
     ]
 
     experiment_df = df[experiments].copy()
@@ -230,19 +260,27 @@ CHALLENGE:
     # Discretize measurements (simulating experimental results)
     for col in experiment_df.columns:
         quartiles = np.percentile(experiment_df[col], [25, 50, 75])
-        experiment_df[col] = pd.cut(experiment_df[col],
-                                  bins=[-np.inf] + list(quartiles) + [np.inf],
-                                  labels=['Very_Low', 'Low', 'Medium', 'High'])
+        experiment_df[col] = pd.cut(
+            experiment_df[col],
+            bins=[-np.inf] + list(quartiles) + [np.inf],
+            labels=["Very_Low", "Low", "Medium", "High"],
+        )
 
     # Add compound classification
-    experiment_df['compound_type'] = cancer.target
-    experiment_df['compound_type'] = experiment_df['compound_type'].map({0: 'Type_A', 1: 'Type_B'})
+    experiment_df["compound_type"] = cancer.target
+    experiment_df["compound_type"] = experiment_df["compound_type"].map(
+        {0: "Type_A", 1: "Type_B"}
+    )
 
-    print(f"🧪 Simulated experimental suite with {len(experiments)} possible experiments")
+    print(
+        f"🧪 Simulated experimental suite with {len(experiments)} possible experiments"
+    )
     print(f"⚗️  Experiments: {experiments}")
 
     # Split into known compounds (training) and new compounds (test)
-    train_compounds, test_compounds = train_test_split(experiment_df, test_size=0.4, random_state=42)
+    train_compounds, test_compounds = train_test_split(
+        experiment_df, test_size=0.4, random_state=42
+    )
 
     print(f"📚 Learning from {len(train_compounds)} characterized compounds")
     print(f"🔮 Predicting for {len(test_compounds)} new compounds")
@@ -267,12 +305,16 @@ CHALLENGE:
                 break
 
             # Create state representing current experimental knowledge
-            candidate_compounds = np.random.choice(len(train_compounds), size=8, replace=False).tolist()
+            candidate_compounds = np.random.choice(
+                len(train_compounds), size=8, replace=False
+            ).tolist()
             current_state = CandidateState(
                 candidate_rows=candidate_compounds,
-                posterior={i: 1.0/len(candidate_compounds) for i in candidate_compounds},
+                posterior={
+                    i: 1.0 / len(candidate_compounds) for i in candidate_compounds
+                },
                 observed_cols=selected_experiments.copy(),
-                observed_values={}
+                observed_values={},
             )
 
             # Get next best experiment
@@ -288,20 +330,30 @@ CHALLENGE:
         test_subset = test_compounds.sample(n=15, random_state=42)
         try:
             from rowvoi import minimal_key_greedy
-            needed_experiments = minimal_key_greedy(test_subset[selected_experiments],
-                                                  list(range(len(test_subset))))
-            efficiency = len(needed_experiments) / len(selected_experiments) if selected_experiments else 0
-            print(f"   📊 Protocol efficiency: {efficiency:.2f} ({len(needed_experiments)}/{len(selected_experiments)} experiments used)")
-        except:
+
+            needed_experiments = minimal_key_greedy(
+                test_subset[selected_experiments], list(range(len(test_subset)))
+            )
+            efficiency = (
+                len(needed_experiments) / len(selected_experiments)
+                if selected_experiments
+                else 0
+            )
+            print(
+                f"   📊 Protocol efficiency: {efficiency:.2f} "
+                f"({len(needed_experiments)}/{len(selected_experiments)} "
+                f"experiments used)"
+            )
+        except Exception:
             print("   ⚠️ Could not test protocol efficiency")
 
     return model
 
 
 def demonstrate_robustness():
-    """Demonstrate robustness of predictive selection to noise and distribution shift."""
+    """Demonstrate robustness of predictive selection to noise and shift."""
     print("\n\n🛡️ SCENARIO 3: Robustness Analysis")
-    print("="*60)
+    print("=" * 60)
     print("""
 VALIDATION CONTEXT:
 Testing how well predictive feature selection performs when:
@@ -320,20 +372,22 @@ and future conditions differ from historical conditions.
     # Discretize for easier analysis
     for col in df.columns:
         tertiles = np.percentile(df[col], [33, 67])
-        df[col] = pd.cut(df[col],
-                        bins=[-np.inf, tertiles[0], tertiles[1], np.inf],
-                        labels=['Small', 'Medium', 'Large'])
+        df[col] = pd.cut(
+            df[col],
+            bins=[-np.inf, tertiles[0], tertiles[1], np.inf],
+            labels=["Small", "Medium", "Large"],
+        )
 
-    df['species'] = iris.target
-    df['species'] = df['species'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
+    df["species"] = iris.target
+    df["species"] = df["species"].map({0: "setosa", 1: "versicolor", 2: "virginica"})
 
-    print(f"🌸 Clean dataset: {len(df)} samples, {len(df.columns)-1} features")
+    print(f"🌸 Clean dataset: {len(df)} samples, {len(df.columns) - 1} features")
 
     # Test different noise levels
     noise_levels = [0.0, 0.1, 0.2, 0.3]
 
     for noise in noise_levels:
-        print(f"\n🔊 Testing with {noise*100:.0f}% noise level:")
+        print(f"\n🔊 Testing with {noise * 100:.0f}% noise level:")
 
         # Create noisy training data
         if noise > 0:
@@ -347,16 +401,19 @@ and future conditions differ from historical conditions.
 
         # Train model on noisy data
         try:
-            model = RowVoiModel(noise=noise/2).fit(noisy_train_df)  # Model knows about some noise
+            # Model knows about some noise
+            model = RowVoiModel(noise=noise / 2).fit(noisy_train_df)
 
             # Test feature selection
-            candidate_rows = np.random.choice(len(train_df), size=6, replace=False).tolist()
+            candidate_rows = np.random.choice(
+                len(train_df), size=6, replace=False
+            ).tolist()
 
             state = CandidateState(
                 candidate_rows=candidate_rows,
-                posterior={i: 1.0/len(candidate_rows) for i in candidate_rows},
+                posterior={i: 1.0 / len(candidate_rows) for i in candidate_rows},
                 observed_cols=[],
-                observed_values={}
+                observed_values={},
             )
 
             suggestion = model.suggest_next_feature(noisy_train_df, state)
@@ -368,9 +425,12 @@ and future conditions differ from historical conditions.
                 # Test on clean test data
                 test_state = CandidateState(
                     candidate_rows=list(range(min(10, len(test_df)))),
-                    posterior={i: 1.0/min(10, len(test_df)) for i in range(min(10, len(test_df)))},
+                    posterior={
+                        i: 1.0 / min(10, len(test_df))
+                        for i in range(min(10, len(test_df)))
+                    },
                     observed_cols=[],
-                    observed_values={}
+                    observed_values={},
                 )
 
                 clean_model = RowVoiModel(noise=0.0).fit(test_df)
@@ -389,9 +449,9 @@ and future conditions differ from historical conditions.
 
 
 def main():
-    """Main demonstration function."""
+    """Demonstrate predictive selection approaches."""
     print("🔮 ROWVOI PREDICTIVE SELECTION: Unknown Data Collection Demo")
-    print("="*70)
+    print("=" * 70)
     print("""
 This demo shows how to use RowVoi for Use Case 2: predicting which features
 will be useful when you don't know what values you'll observe in the future.
@@ -411,9 +471,9 @@ contrasting with the DETERMINISTIC optimization of known data collection.
         simulate_experimental_design()
         demonstrate_robustness()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("🎯 PREDICTIVE SELECTION INSIGHTS")
-        print("="*70)
+        print("=" * 70)
         print("""
 KEY LEARNINGS FROM THIS DEMO:
 
@@ -448,7 +508,9 @@ KEY LEARNINGS FROM THIS DEMO:
 
         print("\n💡 COMPARISON WITH COMPLETE INFORMATION OPTIMIZATION:")
         print("   🎯 Complete info: All values known → Deterministic optimization")
-        print("   🔮 Conditional selection: Partial observations → Conditional prediction")
+        print(
+            "   🔮 Conditional selection: Partial observations → Conditional prediction"
+        )
         print("   🧠 Key insight: Conditional ≠ Blind - uses current state +")
         print("      learned patterns")
         print("   ⚠️  Choose the right approach for your information situation!")
@@ -460,4 +522,3 @@ KEY LEARNINGS FROM THIS DEMO:
 
 if __name__ == "__main__":
     main()
-

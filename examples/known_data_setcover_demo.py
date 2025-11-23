@@ -45,11 +45,12 @@ import pandas as pd
 from rowvoi import is_key
 from rowvoi.setcover import SetCoverAlgorithm, solve_set_cover
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 # Check if we can import sklearn for datasets
 try:
     from sklearn.datasets import load_breast_cancer, load_digits, load_iris, load_wine
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -68,12 +69,12 @@ def load_wine_dataset() -> tuple[pd.DataFrame, str]:
             df[col] = pd.cut(
                 df[col],
                 bins=5,
-                labels=['Very Low', 'Low', 'Medium', 'High', 'Very High']
+                labels=["Very Low", "Low", "Medium", "High", "Very High"],
             )
 
     # Add the target as a feature
-    df['wine_class'] = wine.target
-    df['wine_class'] = df['wine_class'].map({0: 'Class_0', 1: 'Class_1', 2: 'Class_2'})
+    df["wine_class"] = wine.target
+    df["wine_class"] = df["wine_class"].map({0: "Class_0", 1: "Class_1", 2: "Class_2"})
 
     return df, "Wine Quality Dataset"
 
@@ -85,11 +86,11 @@ def load_iris_dataset() -> tuple[pd.DataFrame, str]:
 
     # Discretize features
     for col in df.columns:
-        df[col] = pd.cut(df[col], bins=3, labels=['Small', 'Medium', 'Large'])
+        df[col] = pd.cut(df[col], bins=3, labels=["Small", "Medium", "Large"])
 
     # Add species
-    df['species'] = iris.target
-    df['species'] = df['species'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
+    df["species"] = iris.target
+    df["species"] = df["species"].map({0: "setosa", 1: "versicolor", 2: "virginica"})
 
     return df, "Iris Dataset"
 
@@ -101,20 +102,27 @@ def load_breast_cancer_dataset() -> tuple[pd.DataFrame, str]:
 
     # Select a subset of most interpretable features and discretize them
     selected_features = [
-        'mean radius', 'mean texture', 'mean perimeter', 'mean area',
-        'mean smoothness', 'mean compactness', 'mean concavity',
-        'worst radius', 'worst texture', 'worst area'
+        "mean radius",
+        "mean texture",
+        "mean perimeter",
+        "mean area",
+        "mean smoothness",
+        "mean compactness",
+        "mean concavity",
+        "worst radius",
+        "worst texture",
+        "worst area",
     ]
 
     df = df[selected_features]
 
     # Discretize features
     for col in df.columns:
-        df[col] = pd.cut(df[col], bins=4, labels=['Low', 'Medium', 'High', 'Very High'])
+        df[col] = pd.cut(df[col], bins=4, labels=["Low", "Medium", "High", "Very High"])
 
     # Add diagnosis
-    df['diagnosis'] = cancer.target
-    df['diagnosis'] = df['diagnosis'].map({0: 'Malignant', 1: 'Benign'})
+    df["diagnosis"] = cancer.target
+    df["diagnosis"] = df["diagnosis"].map({0: "Malignant", 1: "Benign"})
 
     return df, "Breast Cancer Dataset"
 
@@ -132,16 +140,18 @@ def load_digits_dataset() -> tuple[pd.DataFrame, str]:
     # Use first 20 pixel features for analysis
 
     # Rename columns to be more interpretable
-    pixel_columns = [f'pixel_{i}' for i in range(20)]
+    pixel_columns = [f"pixel_{i}" for i in range(20)]
     df = df.iloc[:, :20]
     df.columns = pixel_columns
 
     # Discretize pixel intensities
     for col in df.columns:
-        df[col] = pd.cut(df[col], bins=4, labels=['Dark', 'Medium-Dark', 'Medium-Light', 'Light'])
+        df[col] = pd.cut(
+            df[col], bins=4, labels=["Dark", "Medium-Dark", "Medium-Light", "Light"]
+        )
 
     # Add digit class
-    df['digit'] = y
+    df["digit"] = y
 
     return df, "Handwritten Digits Dataset"
 
@@ -154,51 +164,54 @@ def load_penguins_dataset() -> tuple[pd.DataFrame, str]:
     n_samples = 300
 
     # Create realistic penguin data based on actual species characteristics
-    species_list = ['Adelie', 'Chinstrap', 'Gentoo']
+    species_list = ["Adelie", "Chinstrap", "Gentoo"]
 
     data = []
     for _i in range(n_samples):
         species = np.random.choice(species_list)
 
         # Species-specific realistic characteristics
-        if species == 'Adelie':
-            bill_length = np.random.choice(['Short', 'Medium'], p=[0.7, 0.3])
-            bill_depth = np.random.choice(['Deep', 'Medium'], p=[0.8, 0.2])
-            flipper_length = np.random.choice(['Short', 'Medium'], p=[0.6, 0.4])
-            body_mass = np.random.choice(['Light', 'Medium'], p=[0.7, 0.3])
-            island = np.random.choice(['Torgersen', 'Biscoe', 'Dream'])
-        elif species == 'Chinstrap':
-            bill_length = np.random.choice(['Medium', 'Long'], p=[0.4, 0.6])
-            bill_depth = np.random.choice(['Shallow', 'Medium'], p=[0.7, 0.3])
-            flipper_length = np.random.choice(['Medium', 'Long'], p=[0.5, 0.5])
-            body_mass = np.random.choice(['Medium', 'Heavy'], p=[0.6, 0.4])
-            island = 'Dream'  # Chinstraps are mostly on Dream island
+        if species == "Adelie":
+            bill_length = np.random.choice(["Short", "Medium"], p=[0.7, 0.3])
+            bill_depth = np.random.choice(["Deep", "Medium"], p=[0.8, 0.2])
+            flipper_length = np.random.choice(["Short", "Medium"], p=[0.6, 0.4])
+            body_mass = np.random.choice(["Light", "Medium"], p=[0.7, 0.3])
+            island = np.random.choice(["Torgersen", "Biscoe", "Dream"])
+        elif species == "Chinstrap":
+            bill_length = np.random.choice(["Medium", "Long"], p=[0.4, 0.6])
+            bill_depth = np.random.choice(["Shallow", "Medium"], p=[0.7, 0.3])
+            flipper_length = np.random.choice(["Medium", "Long"], p=[0.5, 0.5])
+            body_mass = np.random.choice(["Medium", "Heavy"], p=[0.6, 0.4])
+            island = "Dream"  # Chinstraps are mostly on Dream island
         else:  # Gentoo
-            bill_length = np.random.choice(['Long', 'Very Long'], p=[0.3, 0.7])
-            bill_depth = np.random.choice(['Shallow', 'Medium'], p=[0.8, 0.2])
-            flipper_length = np.random.choice(['Long', 'Very Long'], p=[0.2, 0.8])
-            body_mass = np.random.choice(['Heavy', 'Very Heavy'], p=[0.4, 0.6])
-            island = 'Biscoe'  # Gentoos are mostly on Biscoe island
+            bill_length = np.random.choice(["Long", "Very Long"], p=[0.3, 0.7])
+            bill_depth = np.random.choice(["Shallow", "Medium"], p=[0.8, 0.2])
+            flipper_length = np.random.choice(["Long", "Very Long"], p=[0.2, 0.8])
+            body_mass = np.random.choice(["Heavy", "Very Heavy"], p=[0.4, 0.6])
+            island = "Biscoe"  # Gentoos are mostly on Biscoe island
 
-        sex = np.random.choice(['Male', 'Female'])
-        year = np.random.choice(['2007', '2008', '2009'])
+        sex = np.random.choice(["Male", "Female"])
+        year = np.random.choice(["2007", "2008", "2009"])
 
-        data.append({
-            'species': species,
-            'island': island,
-            'bill_length_mm': bill_length,
-            'bill_depth_mm': bill_depth,
-            'flipper_length_mm': flipper_length,
-            'body_mass_g': body_mass,
-            'sex': sex,
-            'year': year
-        })
+        data.append(
+            {
+                "species": species,
+                "island": island,
+                "bill_length_mm": bill_length,
+                "bill_depth_mm": bill_depth,
+                "flipper_length_mm": flipper_length,
+                "body_mass_g": body_mass,
+                "sex": sex,
+                "year": year,
+            }
+        )
 
     return pd.DataFrame(data), "Palmer Penguins Dataset"
 
 
-def calculate_optimal_solution(df: pd.DataFrame, candidate_rows: list[int],
-                             available_cols: list[str] = None) -> tuple[list[str], int]:
+def calculate_optimal_solution(
+    df: pd.DataFrame, candidate_rows: list[int], available_cols: list[str] = None
+) -> tuple[list[str], int]:
     """Calculate the true optimal solution given available columns."""
     if available_cols is None:
         available_cols = list(df.columns)
@@ -206,9 +219,10 @@ def calculate_optimal_solution(df: pd.DataFrame, candidate_rows: list[int],
     # Use exact algorithm to find the true optimal
     try:
         from rowvoi import minimal_key_exact
+
         optimal_cols = minimal_key_exact(df[available_cols], candidate_rows)
         return optimal_cols, len(optimal_cols)
-    except:
+    except Exception:
         # Fallback: try all possible combinations (for small problems)
         from itertools import combinations
 
@@ -221,9 +235,14 @@ def calculate_optimal_solution(df: pd.DataFrame, candidate_rows: list[int],
         return available_cols, len(available_cols)
 
 
-def run_algorithm_benchmark(df: pd.DataFrame, candidate_rows: list[int],
-                          dataset_name: str, k: int, hidden_fraction: float = 0.0,
-                          max_time: float = 20.0) -> dict[str, Any]:
+def run_algorithm_benchmark(
+    df: pd.DataFrame,
+    candidate_rows: list[int],
+    dataset_name: str,
+    k: int,
+    hidden_fraction: float = 0.0,
+    max_time: float = 20.0,
+) -> dict[str, Any]:
     """Run all algorithms on a dataset and return results."""
     # Simulate hiding some columns
     all_cols = list(df.columns)
@@ -233,7 +252,10 @@ def run_algorithm_benchmark(df: pd.DataFrame, candidate_rows: list[int],
         hidden_cols = np.random.choice(all_cols, size=n_hidden, replace=False).tolist()
         available_cols = [col for col in all_cols if col not in hidden_cols]
         df_subset = df[available_cols]
-        print(f"   🔍 Using {len(available_cols)}/{len(all_cols)} columns (hiding {len(hidden_cols)})")
+        print(
+            f"   🔍 Using {len(available_cols)}/{len(all_cols)} columns "
+            f"(hiding {len(hidden_cols)})"
+        )
     else:
         available_cols = all_cols
         df_subset = df
@@ -241,20 +263,22 @@ def run_algorithm_benchmark(df: pd.DataFrame, candidate_rows: list[int],
 
     # Calculate true optimal for available columns
     try:
-        optimal_solution, optimal_size = calculate_optimal_solution(df_subset, candidate_rows, available_cols)
+        _, optimal_size = calculate_optimal_solution(
+            df_subset, candidate_rows, available_cols
+        )
         print(f"   🎯 True optimal: {optimal_size} columns")
     except Exception as e:
         print(f"   ⚠️ Could not calculate optimal: {e}")
         optimal_size = None
 
     algorithms = {
-        'greedy': SetCoverAlgorithm.GREEDY,
-        'exact': SetCoverAlgorithm.EXACT,
-        'ilp': SetCoverAlgorithm.ILP,
-        'sa': SetCoverAlgorithm.SIMULATED_ANNEALING,
-        'ga': SetCoverAlgorithm.GENETIC_ALGORITHM,
-        'hybrid': SetCoverAlgorithm.HYBRID_SA_GA,
-        'lp': SetCoverAlgorithm.LP_RELAXATION,
+        "greedy": SetCoverAlgorithm.GREEDY,
+        "exact": SetCoverAlgorithm.EXACT,
+        "ilp": SetCoverAlgorithm.ILP,
+        "sa": SetCoverAlgorithm.SIMULATED_ANNEALING,
+        "ga": SetCoverAlgorithm.GENETIC_ALGORITHM,
+        "hybrid": SetCoverAlgorithm.HYBRID_SA_GA,
+        "lp": SetCoverAlgorithm.LP_RELAXATION,
     }
 
     results = {}
@@ -266,17 +290,23 @@ def run_algorithm_benchmark(df: pd.DataFrame, candidate_rows: list[int],
             start_time = time.time()
 
             result = solve_set_cover(
-                df_subset, candidate_rows, algorithm=alg_enum,
+                df_subset,
+                candidate_rows,
+                algorithm=alg_enum,
                 random_seed=42,
                 max_iterations=500,
                 max_generations=100,
-                time_limit=max_time
+                time_limit=max_time,
             )
 
             runtime = time.time() - start_time
 
-            # Verify solution correctness: can the columns actually distinguish/deduplicate the rows?
-            is_valid = is_key(df_subset, candidate_rows, result.columns) if result.columns else (len(candidate_rows) <= 1)
+            # Verify solution correctness: can the columns distinguish the rows?
+            is_valid = (
+                is_key(df_subset, candidate_rows, result.columns)
+                if result.columns
+                else (len(candidate_rows) <= 1)
+            )
 
             # Calculate optimality gap
             optimality_gap = None
@@ -284,21 +314,23 @@ def run_algorithm_benchmark(df: pd.DataFrame, candidate_rows: list[int],
                 optimality_gap = len(result.columns) - optimal_size
 
             results[alg_name] = {
-                'solution': result.columns,
-                'size': len(result.columns),
-                'runtime': runtime,
-                'iterations': result.iterations,
-                'is_optimal': result.is_optimal,
-                'is_valid': is_valid,
-                'optimality_gap': optimality_gap,
-                'true_optimal_size': optimal_size,
-                'hidden_cols': hidden_cols,
-                'available_cols': available_cols,
-                'algorithm': result.algorithm,
-                'success': True
+                "solution": result.columns,
+                "size": len(result.columns),
+                "runtime": runtime,
+                "iterations": result.iterations,
+                "is_optimal": result.is_optimal,
+                "is_valid": is_valid,
+                "optimality_gap": optimality_gap,
+                "true_optimal_size": optimal_size,
+                "hidden_cols": hidden_cols,
+                "available_cols": available_cols,
+                "algorithm": result.algorithm,
+                "success": True,
             }
 
-            gap_str = f"(+{optimality_gap})" if optimality_gap and optimality_gap > 0 else ""
+            gap_str = (
+                f"(+{optimality_gap})" if optimality_gap and optimality_gap > 0 else ""
+            )
             status = "✅" if is_valid else "❌"
             optimality = "🎯" if result.is_optimal else ""
 
@@ -307,17 +339,20 @@ def run_algorithm_benchmark(df: pd.DataFrame, candidate_rows: list[int],
             if not is_valid and result.columns:
                 validation_detail = " INVALID_DEDUPLICATION"
 
-            print(f" │ {runtime:6.3f}s │ {len(result.columns):2d} cols{gap_str:<4} │ {status}{optimality}{validation_detail}")
+            print(
+                f" │ {runtime:6.3f}s │ {len(result.columns):2d} cols{gap_str:<4} │ "
+                f"{status}{optimality}{validation_detail}"
+            )
 
         except Exception as e:
             print(f" │ FAILED: {str(e)[:20]}")
             results[alg_name] = {
-                'success': False,
-                'error': str(e),
-                'runtime': max_time,
-                'size': None,
-                'optimality_gap': None,
-                'true_optimal_size': optimal_size
+                "success": False,
+                "error": str(e),
+                "runtime": max_time,
+                "size": None,
+                "optimality_gap": None,
+                "true_optimal_size": optimal_size,
             }
 
     return results
@@ -325,18 +360,18 @@ def run_algorithm_benchmark(df: pd.DataFrame, candidate_rows: list[int],
 
 def analyze_dataset_results(results: dict[str, Any], dataset_name: str):
     """Analyze and display results for a single dataset."""
-    successful = {k: v for k, v in results.items() if v.get('success', False)}
+    successful = {k: v for k, v in results.items() if v.get("success", False)}
 
     if not successful:
         print(f"❌ No algorithms succeeded on {dataset_name}")
         return
 
     # Find optimal size
-    valid_results = {k: v for k, v in successful.items() if v.get('is_valid', False)}
+    valid_results = {k: v for k, v in successful.items() if v.get("is_valid", False)}
     if valid_results:
-        optimal_size = min(v['size'] for v in valid_results.values())
+        optimal_size = min(v["size"] for v in valid_results.values())
     else:
-        optimal_size = float('inf')
+        optimal_size = float("inf")
 
     print(f"\n📊 {dataset_name} Results Summary:")
     print("Algorithm │ Time(s)  │ Columns │ Optimal │ Valid │ Quality")
@@ -345,35 +380,48 @@ def analyze_dataset_results(results: dict[str, Any], dataset_name: str):
     # Sort by solution quality then speed
     sorted_results = sorted(
         successful.items(),
-        key=lambda x: (x[1].get('size', 999), x[1].get('runtime', 999))
+        key=lambda x: (x[1].get("size", 999), x[1].get("runtime", 999)),
     )
 
     for alg_name, result in sorted_results:
-        size = result.get('size', '?')
-        runtime = result.get('runtime', 0)
-        is_optimal = result.get('is_optimal', False)
-        is_valid = result.get('is_valid', False)
+        size = result.get("size", "?")
+        runtime = result.get("runtime", 0)
+        is_optimal = result.get("is_optimal", False)
+        is_valid = result.get("is_valid", False)
 
         optimal_marker = "🎯" if is_optimal else " "
         valid_marker = "✅" if is_valid else "❌"
-        quality = "BEST" if size == optimal_size else f"+{size - optimal_size}" if size != '?' else "?"
+        quality = (
+            "BEST"
+            if size == optimal_size
+            else f"+{size - optimal_size}"
+            if size != "?"
+            else "?"
+        )
 
-        print(f"{alg_name.upper():8s} │ {runtime:7.3f} │ {size:7d} │ {optimal_marker:7s} │ {valid_marker:5s} │ {quality}")
+        print(
+            f"{alg_name.upper():8s} │ {runtime:7.3f} │ {size:7d} │ "
+            f"{optimal_marker:7s} │ {valid_marker:5s} │ {quality}"
+        )
 
     # Show the best solution
     if valid_results:
-        best_alg = min(valid_results.items(), key=lambda x: (x[1]['size'], x[1]['runtime']))
+        best_alg = min(
+            valid_results.items(), key=lambda x: (x[1]["size"], x[1]["runtime"])
+        )
         best_name, best_result = best_alg
         print(f"\n🏆 Best solution ({best_name.upper()}): {best_result['solution']}")
 
 
-def create_enhanced_analysis(all_results: dict[str, dict[int, dict[str, Any]]], k_values: list[int]):
+def create_enhanced_analysis(
+    all_results: dict[str, dict[int, dict[str, Any]]], k_values: list[int]
+):
     """Create enhanced analysis across datasets and k values."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("📊 COMPREHENSIVE ALGORITHM ANALYSIS")
-    print("="*80)
+    print("=" * 80)
 
-    algorithms = ['greedy', 'exact', 'ilp', 'sa', 'ga', 'hybrid', 'lp']
+    algorithms = ["greedy", "exact", "ilp", "sa", "ga", "hybrid", "lp"]
 
     # Scalability analysis: How do algorithms perform as k increases?
     print("\n📈 SCALABILITY ANALYSIS: Performance vs. Number of Rows (k)")
@@ -385,10 +433,12 @@ def create_enhanced_analysis(all_results: dict[str, dict[int, dict[str, Any]]], 
         for k in k_values:
             if k in dataset_results:
                 row = f"{dataset_name[:20]:<20} {k:<4}"
-                for alg in ['greedy', 'exact', 'ilp', 'sa']:
-                    if alg in dataset_results[k] and dataset_results[k][alg].get('success', False):
-                        size = dataset_results[k][alg]['size']
-                        time = dataset_results[k][alg]['runtime']
+                for alg in ["greedy", "exact", "ilp", "sa"]:
+                    if alg in dataset_results[k] and dataset_results[k][alg].get(
+                        "success", False
+                    ):
+                        size = dataset_results[k][alg]["size"]
+                        time = dataset_results[k][alg]["runtime"]
                         row += f" {size}({time:.2f})"[:8].ljust(8)
                     else:
                         row += " FAIL   "
@@ -405,11 +455,18 @@ def create_enhanced_analysis(all_results: dict[str, dict[int, dict[str, Any]]], 
         for dataset_results in all_results.values():
             for k_results in dataset_results.values():
                 total_tests += 1
-                if alg in k_results and k_results[alg].get('success', False) and k_results[alg].get('is_valid', False):
+                if (
+                    alg in k_results
+                    and k_results[alg].get("success", False)
+                    and k_results[alg].get("is_valid", False)
+                ):
                     successful_tests += 1
 
         success_rate = successful_tests / total_tests * 100 if total_tests > 0 else 0
-        print(f"{alg.upper():8s}: {successful_tests:2d}/{total_tests:2d} tests ({success_rate:5.1f}%)")
+        print(
+            f"{alg.upper():8s}: {successful_tests:2d}/{total_tests:2d} tests "
+            f"({success_rate:5.1f}%)"
+        )
 
     # Performance trends as k increases
     print("\n📊 PERFORMANCE TRENDS (Average across datasets):")
@@ -419,16 +476,16 @@ def create_enhanced_analysis(all_results: dict[str, dict[int, dict[str, Any]]], 
 
     for k in k_values:
         row = f"{k:<4}"
-        for alg in ['greedy', 'exact', 'ilp', 'sa']:
+        for alg in ["greedy", "exact", "ilp", "sa"]:
             sizes = []
             times = []
 
             for dataset_results in all_results.values():
                 if k in dataset_results and alg in dataset_results[k]:
                     result = dataset_results[k][alg]
-                    if result.get('success', False) and result.get('is_valid', False):
-                        sizes.append(result['size'])
-                        times.append(result['runtime'])
+                    if result.get("success", False) and result.get("is_valid", False):
+                        sizes.append(result["size"])
+                        times.append(result["runtime"])
 
             if sizes:
                 avg_size = np.mean(sizes)
@@ -458,23 +515,29 @@ def create_enhanced_analysis(all_results: dict[str, dict[int, dict[str, Any]]], 
                 total_tests += 1
                 if alg in k_results:
                     result = k_results[alg]
-                    if result.get('success', False) and result.get('is_valid', False):
+                    if result.get("success", False) and result.get("is_valid", False):
                         successes += 1
-                        all_times.append(result['runtime'])
-                        all_sizes.append(result['size'])
+                        all_times.append(result["runtime"])
+                        all_sizes.append(result["size"])
 
         reliability_scores[alg] = successes / total_tests if total_tests > 0 else 0
-        speed_scores[alg] = np.mean(all_times) if all_times else float('inf')
-        quality_scores[alg] = np.mean(all_sizes) if all_sizes else float('inf')
+        speed_scores[alg] = np.mean(all_times) if all_times else float("inf")
+        quality_scores[alg] = np.mean(all_sizes) if all_sizes else float("inf")
 
     # Find winners
     most_reliable = max(reliability_scores.items(), key=lambda x: x[1])
-    fastest = min((k, v) for k, v in speed_scores.items() if v != float('inf'))
-    best_quality = min((k, v) for k, v in quality_scores.items() if v != float('inf'))
+    fastest = min((k, v) for k, v in speed_scores.items() if v != float("inf"))
+    best_quality = min((k, v) for k, v in quality_scores.items() if v != float("inf"))
 
-    print(f"🛡️  Most Reliable: {most_reliable[0].upper()} ({most_reliable[1]:.1%} success rate)")
+    print(
+        f"🛡️  Most Reliable: {most_reliable[0].upper()} "
+        f"({most_reliable[1]:.1%} success rate)"
+    )
     print(f"⚡ Fastest: {fastest[0].upper()} ({fastest[1]:.3f}s average)")
-    print(f"🎯 Best Quality: {best_quality[0].upper()} ({best_quality[1]:.1f} columns average)")
+    print(
+        f"🎯 Best Quality: {best_quality[0].upper()} "
+        f"({best_quality[1]:.1f} columns average)"
+    )
 
     # Contextual recommendations
     print("\n🎪 CONTEXT-SPECIFIC RECOMMENDATIONS:")
@@ -487,9 +550,9 @@ def create_enhanced_analysis(all_results: dict[str, dict[int, dict[str, Any]]], 
 
 
 def main():
-    """Main demonstration function."""
+    """Run comprehensive benchmark of set cover algorithms."""
     print("🎉 ROWVOI ALGORITHMS: REAL DATASET BENCHMARK")
-    print("="*60)
+    print("=" * 60)
     print("""
 This benchmark tests all rowvoi set cover algorithms on real datasets
 from scikit-learn to evaluate:
@@ -513,7 +576,7 @@ Real Datasets tested:
         load_breast_cancer_dataset(),
         load_iris_dataset(),
         load_digits_dataset(),
-        load_penguins_dataset()
+        load_penguins_dataset(),
     ]
 
     # Test with varying k values (number of rows to distinguish)
@@ -522,11 +585,11 @@ Real Datasets tested:
     all_results = {}
 
     for df, dataset_name in datasets:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"🔬 DATASET: {dataset_name}")
         print(f"📊 Size: {len(df)} rows × {len(df.columns)} columns")
         print(f"Features: {list(df.columns)}")
-        print('='*60)
+        print("=" * 60)
 
         dataset_results = {}
 
@@ -543,23 +606,32 @@ Real Datasets tested:
             candidate_rows = np.random.choice(len(df), size=k, replace=False).tolist()
 
             # Run benchmark for this k
-            results = run_algorithm_benchmark(df, candidate_rows, f"{dataset_name} (k={k})", k, max_time=10.0)
+            results = run_algorithm_benchmark(
+                df, candidate_rows, f"{dataset_name} (k={k})", k, max_time=10.0
+            )
             dataset_results[k] = results
 
             # Show quick summary for this k
-            successful = {alg: res for alg, res in results.items() if res.get('success', False)}
+            successful = {
+                alg: res for alg, res in results.items() if res.get("success", False)
+            }
             if successful:
-                best_alg = min(successful.items(), key=lambda x: (x[1]['size'], x[1]['runtime']))
-                print(f"   Best: {best_alg[0].upper()} → {best_alg[1]['size']} cols in {best_alg[1]['runtime']:.3f}s")
+                best_alg = min(
+                    successful.items(), key=lambda x: (x[1]["size"], x[1]["runtime"])
+                )
+                print(
+                    f"   Best: {best_alg[0].upper()} → {best_alg[1]['size']} cols in "
+                    f"{best_alg[1]['runtime']:.3f}s"
+                )
 
         all_results[dataset_name] = dataset_results
 
     # Enhanced cross-analysis
     create_enhanced_analysis(all_results, k_values)
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🎯 PRACTICAL RECOMMENDATIONS")
-    print("="*80)
+    print("=" * 80)
     print("""
 Based on this benchmark, here are practical guidelines:
 
@@ -590,4 +662,3 @@ Based on this benchmark, here are practical guidelines:
 
 if __name__ == "__main__":
     main()
-
