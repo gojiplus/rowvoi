@@ -97,6 +97,20 @@ def _column_covers_pairs(values: Sequence, rows: Sequence[int]) -> set[tuple[int
 def greedy_minimal_set(
     dataframe: pd.DataFrame, row_indices: Sequence[int]
 ) -> list[str]:
+    """Find minimal column set using greedy set cover algorithm.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        The input DataFrame.
+    row_indices : Sequence[int]
+        Row indices to disambiguate.
+
+    Returns
+    -------
+    list[str]
+        Column names that distinguish the rows.
+    """
     rows = list(row_indices)
     if len(rows) <= 1:
         return []
@@ -129,6 +143,20 @@ def greedy_minimal_set(
 
 
 def find_minimal_columns(dataframe: pd.DataFrame, rows: Sequence[int]) -> list[str]:
+    """Find minimal columns to distinguish rows.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        The input DataFrame.
+    rows : Sequence[int]
+        Row indices to process.
+
+    Returns
+    -------
+    list[str]
+        Column names that distinguish the rows.
+    """
     positions: list[int] = []
     for r in rows:
         if isinstance(r, int):

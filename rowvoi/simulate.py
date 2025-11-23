@@ -197,10 +197,10 @@ def benchmark_policy(
             )
             steps_used = len(history)
             # Determine whether unique identification succeeded
-            # After run_acquisition, state is not updated (the passed state is not modified), but
-            # we can check the last suggestion's entropy_after to infer uniqueness.  Alternatively
-            # recompute candidate set by using the initial state and applying the history.
-            # For simplicity, treat success as steps_used > 0 and the entropy_after of the last
+            # After run_acquisition, state is not updated (passed state unmodified), but
+            # we can check the last suggestion's entropy_after to infer uniqueness.
+            # Alternatively recompute candidate set by applying history to initial.
+            # For simplicity, treat success as steps_used > 0 and entropy_after of last
             # suggestion equals 0.
             unique_identified = False
             if history:
@@ -209,7 +209,7 @@ def benchmark_policy(
                 if last.details.get("entropy_after", 0.0) < 1e-12:
                     unique_identified = True
             else:
-                # If no features were needed, either we already had one candidate or failed.
+                # If no features needed, either we had one candidate or failed.
                 unique_identified = k <= 1
             runs.append(
                 AcquisitionResult(

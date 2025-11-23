@@ -21,7 +21,7 @@ def sample_df():
 
 @pytest.fixture
 def simple_state():
-    """Simple candidate state for testing."""
+    """Return simple candidate state for testing."""
     return CandidateState(
         candidate_rows=[0, 1],
         posterior={0: 0.6, 1: 0.4},

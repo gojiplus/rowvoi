@@ -147,7 +147,7 @@ class RowVoiModel:
                 try:
                     df_proc[col] = pd.qcut(df_proc[col], q=bins, duplicates="drop")
                 except ValueError:
-                    # If qcut fails (e.g. due to constant values), convert to a single category
+                    # If qcut fails (e.g. constant values), convert to single category
                     df_proc[col] = df_proc[col].astype(str)
             # Otherwise leave the column as is.
         # Compute frequencies and entropies for each discrete column.
@@ -212,7 +212,7 @@ class RowVoiModel:
         if self.noise <= 0.0:
             # Deterministic: all mass on the true value.
             return {v: 1.0 if v == true_value else 0.0 for v in candidate_values}
-        # Otherwise distribute noise mass across other values proportional to global freqs.
+        # Otherwise distribute noise mass across values proportional to global freqs.
         freqs = self._freqs.get(col)
         if freqs is None:
             raise ValueError(
@@ -274,7 +274,7 @@ class RowVoiModel:
             The expected conditional entropy (in bits).
         """
         rows = state.candidate_rows
-        # Determine the set of candidate values for this column among current candidates.
+        # Determine candidate values for this column among current candidates.
         values = [self._df.iloc[r][col] for r in rows]
         unique_values = set(values)
         # Precompute p(X=v | R=r) for each r and v under noise model
@@ -387,10 +387,10 @@ class RowVoiModel:
             # Compute expected conditional entropy using global frequencies and noise
             h_cond = self._expected_cond_entropy(state, col)
             voi = h_prior - h_cond
-            # Normalized VOI (divide by feature entropy within candidate set or global entropy)
+            # Normalized VOI (divide by feature entropy within candidate set)
             if self.normalize_cols:
                 # compute entropy of the candidate-set distribution of this column
-                # treat candidate-set distribution (p_x) computed above? It's not returned; recompute quickly.
+                # compute candidate-set distribution (p_x); recompute quickly.
                 values = [self._df.iloc[r][col] for r in state.candidate_rows]
                 # compute weighted histogram p_x
                 p_x: dict[object, float] = {}

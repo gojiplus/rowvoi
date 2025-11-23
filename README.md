@@ -8,6 +8,24 @@
 
 Interactive disambiguation of rows in a dataset using value-of-information policies.
 
+## Business Problems & Use Cases
+
+**Entity Resolution & Data Deduplication**
+- **Customer Matching**: When merging customer databases, efficiently determine which additional attributes (email, phone, address) to check to uniquely identify duplicate customer records
+- **Product Catalog Matching**: In e-commerce, decide which product attributes to compare when matching items across different supplier catalogs
+
+**Interactive Data Cleaning**
+- **Record Validation**: When data quality issues create multiple potential matches, systematically determine which fields to verify to confirm the correct record
+- **Survey Data Linkage**: Link survey responses to master databases by strategically selecting which demographic questions to ask
+
+**Active Learning & Human-in-the-Loop ML**
+- **Annotation Prioritization**: Optimize which data points to label by identifying records that are most informative for disambiguation
+- **Feature Selection**: Determine which costly features (lab tests, manual reviews) provide maximum information gain for classification
+
+**Fraud Detection & Investigation**
+- **Transaction Investigation**: When multiple transactions could be fraudulent, determine which account details to investigate first
+- **Identity Verification**: Efficiently verify user identity by selecting the minimum set of verification questions needed
+
 ## Overview
 
 The `rowvoi` package provides tools for interactively disambiguating rows in a dataset. Given a small set of candidate rows, it helps answer questions such as:
