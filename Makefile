@@ -53,7 +53,7 @@ ci: ## Run all CI checks locally
 	$(MAKE) test
 
 ci-docker: ## Run CI in Docker (standard Python image)
-	docker run --rm -v $(PWD):/app -w /app python:3.12 sh -c \
+	docker run --rm -v $(PWD):/app -w /app python:3.11 sh -c \
 		"pip install uv && \
 		uv sync --extra dev && \
 		uv run ruff check . && \

@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from rowvoi import CandidateState
+from rowvoi.types import CandidateState
 
 
 @pytest.fixture

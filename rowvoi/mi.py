@@ -17,8 +17,6 @@ policy decisions that incorporate noise and global priors, see
 :mod:`rowvoi.ml`.
 """
 
-from __future__ import annotations
-
 import math
 from collections.abc import Sequence
 

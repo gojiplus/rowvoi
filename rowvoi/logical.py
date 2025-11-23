@@ -15,8 +15,6 @@ deterministically based on equality/inequality of values.  For the
 probabilistic/ML version of the problem, see :mod:`rowvoi.ml`.
 """
 
-from __future__ import annotations
-
 import itertools
 from collections.abc import Sequence
 
@@ -59,11 +57,14 @@ def is_key(
         ``True`` if ``cols`` is a key for ``rows``; ``False``
         otherwise.
     """
-    if len(rows) <= 1:
-        # A single row is trivially unique.
-        return True
-    if not cols:
-        return False
+    # Use pattern matching for cleaner logic handling
+    match len(rows):
+        case 0 | 1:
+            # Empty or single row is trivially unique
+            return True
+        case _:
+            if not cols:
+                return False
     # Build a set of tuples of column values for each candidate row.
     seen: set[tuple] = set()
     for r in rows:
@@ -110,8 +111,9 @@ def minimal_key_greedy(
         ``is_key`` on the result to verify.
     """
     rows = list(rows)
-    if len(rows) <= 1:
-        return []
+    match len(rows):
+        case 0 | 1:
+            return []
     # Universe of unordered pairs of rows that need to be separated.
     universe: set[tuple[int, int]] = set()
     for a, b in itertools.combinations(sorted(rows), 2):
@@ -149,8 +151,7 @@ def minimal_key_greedy(
         for col, pairs in coverage.items():
             if col in selected:
                 continue
-            count = len(uncovered & pairs)
-            if count > best_count:
+            if (count := len(uncovered & pairs)) > best_count:
                 best_count = count
                 best_col = col
         if best_col is None or best_count <= 0:

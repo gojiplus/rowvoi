@@ -16,11 +16,11 @@ been queried, and what the observed answers were.  The
 :class:`CandidateState` dataclass encapsulates this information.
 """
 
-from __future__ import annotations
-
 from collections.abc import Hashable
 from dataclasses import dataclass
+from typing import Self
 
+# Type aliases for better code clarity
 RowIndex = int
 """Alias for row indices within a pandas DataFrame."""
 
@@ -33,7 +33,7 @@ any immutable label type.
 """
 
 
-@dataclass
+@dataclass(slots=True)
 class CandidateState:
     """State for an interactive disambiguation session.
 
@@ -68,3 +68,48 @@ class CandidateState:
     posterior: dict[RowIndex, float]
     observed_cols: list[ColName]
     observed_values: dict[ColName, object]
+
+    def copy(self) -> Self:
+        """Create a deep copy of the candidate state."""
+        return CandidateState(
+            candidate_rows=list(self.candidate_rows),
+            posterior=dict(self.posterior),
+            observed_cols=list(self.observed_cols),
+            observed_values=dict(self.observed_values),
+        )
+
+    @property
+    def entropy(self) -> float:
+        """Calculate the entropy of the current posterior distribution."""
+        import math
+
+        if not self.candidate_rows:
+            return 0.0
+
+        entropy = 0.0
+        for row in self.candidate_rows:
+            p = self.posterior.get(row, 0.0)
+            if p > 0.0:
+                entropy -= p * math.log2(p)
+        return entropy
+
+    @property
+    def is_uniquely_determined(self) -> bool:
+        """Check if only one candidate remains with significant probability."""
+        return (
+            len([r for r in self.candidate_rows if self.posterior.get(r, 0.0) > 1e-10])
+            <= 1
+        )
+
+    def update_with_observation(self, col: ColName, value: object) -> Self:
+        """Create new state with an additional observation.
+
+        This method does not filter candidates - it just records the observation.
+        Candidate filtering should be done separately based on the actual data.
+        """
+        return CandidateState(
+            candidate_rows=list(self.candidate_rows),
+            posterior=dict(self.posterior),
+            observed_cols=self.observed_cols + [col],
+            observed_values=self.observed_values | {col: value},
+        )

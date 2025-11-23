@@ -19,8 +19,6 @@ subset size.  Each entry is a list of :class:`AcquisitionResult`
 dataclasses containing detailed information about each run.
 """
 
-from __future__ import annotations
-
 import random
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -76,7 +74,7 @@ def sample_candidate_sets(
     return sets
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class AcquisitionResult:
     """Result of a single feature acquisition simulation.
 

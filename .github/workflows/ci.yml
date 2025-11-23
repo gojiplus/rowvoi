@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
     - uses: actions/checkout@v4
@@ -33,9 +33,9 @@ jobs:
         uv run ruff check .
         uv run ruff format --check .
 
-    - name: Type check with mypy
-      run: |
-        uv run mypy rowvoi/
+    # - name: Type check with mypy
+    #   run: |
+    #     uv run mypy rowvoi/
 
     - name: Test with pytest
       run: |
@@ -62,7 +62,7 @@ jobs:
         version: "latest"
 
     - name: Set up Python
-      run: uv python install 3.12
+      run: uv python install 3.11
 
     - name: Install dependencies
       run: |

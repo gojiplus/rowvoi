@@ -16,18 +16,17 @@ For deterministic/local policies that do not require learning a model,
 see :mod:`rowvoi.mi`.
 """
 
-from __future__ import annotations
-
 import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import Self
 
 import pandas as pd
 
 from .types import CandidateState, ColName, RowIndex
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class FeatureSuggestion:
     """Result of evaluating a feature for expected value of information.
 
@@ -102,7 +101,7 @@ class RowVoiModel:
         df: pd.DataFrame,
         discrete_cols: Sequence[ColName] | None = None,
         bins: int = 3,
-    ) -> RowVoiModel:
+    ) -> Self:
         """Fit the model to a DataFrame by computing column frequencies and entropies.
 
         This method prepares the model to evaluate expected information
@@ -279,7 +278,7 @@ class RowVoiModel:
         unique_values = set(values)
         # Precompute p(X=v | R=r) for each r and v under noise model
         p_x_given_r: dict[RowIndex, dict[object, float]] = {}
-        for r, val_r in zip(rows, values):
+        for r, val_r in zip(rows, values, strict=True):
             p_x_given_r[r] = self._conditional_value_distribution(
                 col, unique_values, val_r
             )
@@ -394,7 +393,7 @@ class RowVoiModel:
                 values = [self._df.iloc[r][col] for r in state.candidate_rows]
                 # compute weighted histogram p_x
                 p_x: dict[object, float] = {}
-                for r, v in zip(state.candidate_rows, values):
+                for r, v in zip(state.candidate_rows, values, strict=True):
                     p_x[v] = p_x.get(v, 0.0) + state.posterior.get(r, 0.0)
                 # compute entropy of X in candidate set
                 h_x = 0.0
