@@ -31,11 +31,11 @@ def minimal_key_advanced(
     **kwargs
 ) -> list[ColName]:
     """Find minimal column set using advanced algorithms.
-    
+
     This function provides access to multiple algorithms for the minimal
     set cover problem, offering different tradeoffs between solution quality
     and computation time.
-    
+
     Parameters
     ----------
     df : pd.DataFrame
@@ -55,12 +55,12 @@ def minimal_key_advanced(
         Columns to consider. If None, use all columns.
     **kwargs
         Algorithm-specific parameters.
-        
+
     Returns
     -------
     list[ColName]
         Column names that distinguish the rows.
-        
+
     Examples
     --------
     >>> import pandas as pd
@@ -72,7 +72,7 @@ def minimal_key_advanced(
     ['B']
     """
     from .setcover import SetCoverAlgorithm, solve_set_cover
-    
+
     # Map string names to enum values
     algorithm_map = {
         "greedy": SetCoverAlgorithm.GREEDY,
@@ -83,11 +83,11 @@ def minimal_key_advanced(
         "hybrid": SetCoverAlgorithm.HYBRID_SA_GA,
         "lp": SetCoverAlgorithm.LP_RELAXATION,
     }
-    
+
     if algorithm not in algorithm_map:
         available = ", ".join(algorithm_map.keys())
         raise ValueError(f"Unknown algorithm '{algorithm}'. Available: {available}")
-    
+
     result = solve_set_cover(
         df=df,
         rows=rows,
@@ -95,7 +95,7 @@ def minimal_key_advanced(
         candidate_cols=candidate_cols,
         **kwargs
     )
-    
+
     return result.columns
 
 

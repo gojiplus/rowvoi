@@ -44,14 +44,9 @@ The package is organized into submodules:
 
 from .logical import (
     is_key,
+    minimal_key_advanced,
     minimal_key_exact,
     minimal_key_greedy,
-    minimal_key_advanced,
-)
-from .setcover import (
-    SetCoverAlgorithm,
-    SetCoverResult,
-    solve_set_cover,
 )
 from .mi import (
     best_feature_by_candidate_mi,
@@ -60,6 +55,11 @@ from .mi import (
 from .ml import (
     FeatureSuggestion,
     RowVoiModel,
+)
+from .setcover import (
+    SetCoverAlgorithm,
+    SetCoverResult,
+    solve_set_cover,
 )
 from .simulate import (
     AcquisitionResult,
@@ -80,7 +80,7 @@ __all__ = [
     "minimal_key_advanced",
     # set cover algorithms
     "SetCoverAlgorithm",
-    "SetCoverResult", 
+    "SetCoverResult",
     "solve_set_cover",
     # mutual information (candidate set)
     "candidate_mi",

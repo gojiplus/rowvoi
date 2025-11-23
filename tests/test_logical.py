@@ -35,7 +35,8 @@ class TestIsKey:
     def test_is_key_empty_columns(self, sample_df):
         """Test with empty column list."""
         assert is_key(sample_df, [0], []) is True  # Single row is trivially unique
-        assert is_key(sample_df, [0, 1], []) is False  # Empty columns can't distinguish multiple rows
+        # Empty columns can't distinguish multiple rows
+        assert is_key(sample_df, [0, 1], []) is False
 
 
 class TestMinimalKeyExact:
