@@ -1,10 +1,10 @@
 # rowvoi: finding minimal distinguishing columns and the next best feature to query
 
-[![PyPI version](https://badge.fury.io/py/rowvoi.svg)](https://badge.fury.io/py/rowvoi)
+[![PyPI version](https://img.shields.io/pypi/v/rmcp.svg)](https://pypi.org/project/rowvoi/)
+[![CI](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml/badge.svg)](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/rowvoi/)
-[![CI](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml/badge.svg)](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/rowvoi/)
 
 `rowvoi` is a small library for **row disambiguation** in tabular data:
 
