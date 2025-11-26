@@ -1,112 +1,86 @@
-"""Top‑level package for rowvoi.
+"""rowvoi: finding minimal distinguishing columns and the next best feature to query.
 
-The :mod:`rowvoi` package provides a set of tools for interactive
-disambiguation of rows in a dataset.  Given a small set of candidate
-rows, it helps answer questions such as:
-
-* Which columns (features) must be observed to uniquely distinguish
-  these rows?  (See :func:`rowvoi.logical.minimal_key_exact` and
-  :func:`rowvoi.logical.minimal_key_greedy`.)
-* How much information does a given feature provide about which row
-  is correct, given what we have seen so far?  (See
-  :func:`rowvoi.mi.candidate_mi` and
-  :func:`rowvoi.mi.best_feature_by_candidate_mi`.)
-* Under a simple noise model and global frequency priors, which
-  feature should we acquire next to maximize expected reduction in
-  uncertainty?  (See :class:`rowvoi.ml.RowVoiModel`.)
-* How does a greedy feature acquisition policy compare to the
-  optimal minimal key in practice?  (See
-  :func:`rowvoi.simulate.benchmark_policy`.)
-
-Example usage::
-
-    >>> import pandas as pd
-    >>> from rowvoi import minimal_key_greedy, RowVoiModel, CandidateState
-    >>> df = pd.DataFrame({"A": [1, 1, 2], "B": [3, 4, 3], "C": [5, 6, 7]})
-    >>> minimal_key_greedy(df, [0, 1])
-    ['B']
-    >>> # Fit a model to estimate expected information gain
-    >>> model = RowVoiModel().fit(df)
-    >>> state = CandidateState(candidate_rows=[0, 2], posterior={0: 0.5, 2: 0.5},
-    ...                       observed_cols=[], observed_values={})
-    >>> suggestion = model.suggest_next_feature(df, state)
-    >>> suggestion.col
-    'A'
-
-The package is organized into submodules:
-
-* :mod:`rowvoi.types` – basic dataclasses and type aliases.
-* :mod:`rowvoi.logical` – deterministic functional dependency algorithms.
-* :mod:`rowvoi.mi` – candidate‑set mutual information routines.
-* :mod:`rowvoi.ml` – model‑based value‑of‑information policies.
-* :mod:`rowvoi.simulate` – utilities for sampling and benchmarking.
+The rowvoi package provides tools for row disambiguation in tabular data:
+- Deterministic key finding (minimal set cover on row pairs)
+- Probabilistic key finding with models
+- Interactive disambiguation sessions
+- Policy-based column selection
+- Comprehensive evaluation tools
 """
 
-from .logical import (
-    is_key,
-    minimal_key_advanced,
-    minimal_key_exact,
-    minimal_key_greedy,
-)
-from .mi import (
-    best_feature_by_candidate_mi,
-    candidate_mi,
-)
-from .ml import (
-    FeatureSuggestion,
-    RowVoiModel,
-)
-from .probcover import (
-    AdaptiveFeatureSuggestion,
-    ProbabilisticCoverageResult,
-    estimate_pair_separation_probs,
-    evaluate_coverage,
-    greedy_epsilon_cover,
-    probabilistic_minimal_key,
-    suggest_next_feature_epsilon,
-)
-from .setcover import (
-    SetCoverAlgorithm,
-    SetCoverResult,
-    solve_set_cover,
-)
-from .simulate import (
+# Core types and data structures
+from .core import CandidateState, FeatureSuggestion
+
+# Evaluation and simulation
+from .eval import (
     AcquisitionResult,
+    KeyEvalResult,
+    PolicyEvalStats,
     benchmark_policy,
+    compute_gold_key,
+    compute_gold_next_column_probabilistic,
+    evaluate_keys,
+    evaluate_policies,
     sample_candidate_sets,
 )
-from .types import CandidateState, ColName, RowIndex  # re‑export types
+
+# Deterministic keys and paths
+from .keys import KeyPath, KeyProblem, find_key, plan_key_path
+
+# Machine learning model
+from .ml import RowVoiModel
+
+# Policies for column selection
+from .policies import (
+    CandidateMIPolicy,
+    GreedyCoveragePolicy,
+    MIPolicy,
+    Policy,
+    RandomPolicy,
+)
+
+# Probabilistic methods
+from .prob_keys import find_key_probabilistic, plan_key_path_probabilistic
+
+# Interactive sessions
+from .session import DisambiguationSession, StopRules
+from .types import ColName, RowIndex
+
+__version__ = "0.2.0"
 
 __all__ = [
-    # types
+    # Core types
     "CandidateState",
+    "FeatureSuggestion",
     "ColName",
     "RowIndex",
-    # logical
-    "is_key",
-    "minimal_key_exact",
-    "minimal_key_greedy",
-    "minimal_key_advanced",
-    # set cover algorithms
-    "SetCoverAlgorithm",
-    "SetCoverResult",
-    "solve_set_cover",
-    # probabilistic cover
-    "probabilistic_minimal_key",
-    "suggest_next_feature_epsilon",
-    "ProbabilisticCoverageResult",
-    "AdaptiveFeatureSuggestion",
-    "estimate_pair_separation_probs",
-    "evaluate_coverage",
-    "greedy_epsilon_cover",
-    # mutual information (candidate set)
-    "candidate_mi",
-    "best_feature_by_candidate_mi",
-    # model
+    # Deterministic methods
+    "KeyProblem",
+    "KeyPath",
+    "find_key",
+    "plan_key_path",
+    # Probabilistic methods
+    "find_key_probabilistic",
+    "plan_key_path_probabilistic",
+    # Policies
+    "Policy",
+    "GreedyCoveragePolicy",
+    "MIPolicy",
+    "CandidateMIPolicy",
+    "RandomPolicy",
+    # Sessions
+    "DisambiguationSession",
+    "StopRules",
+    # Model
     "RowVoiModel",
-    "FeatureSuggestion",
-    # simulation
+    # Evaluation
     "sample_candidate_sets",
+    "compute_gold_key",
+    "compute_gold_next_column_probabilistic",
+    "evaluate_keys",
+    "evaluate_policies",
     "benchmark_policy",
+    "KeyEvalResult",
+    "PolicyEvalStats",
     "AcquisitionResult",
 ]

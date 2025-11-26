@@ -1,348 +1,366 @@
-# rowvoi: finding minimal distinguishing columns and the next best feature to query
+# rowvoi: Interactive row disambiguation with value-of-information
 
-[![PyPI version](https://img.shields.io/pypi/v/rmcp.svg)](https://pypi.org/project/rowvoi/)
+[![PyPI version](https://img.shields.io/pypi/v/rowvoi.svg)](https://pypi.org/project/rowvoi/)
 [![CI](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml/badge.svg)](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml)
 [![Downloads](https://pepy.tech/badge/rowvoi)](https://pepy.tech/project/rowvoi)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://gojiplus.github.io/rowvoi/)
 
-`rowvoi` is a small library for **row disambiguation** in tabular data:
+**RowVoi** is a Python library for **interactive row disambiguation** in tabular data. It helps you find the minimal set of columns needed to distinguish rows, and suggests which column to query next to reduce ambiguity most efficiently.
 
-Given a set of candidate rows and a set of columns,
+## 🎯 Key Features
 
-  * which minimal set of columns distinguishes those rows?
-  * if some columns are not yet observed, which column should you query next to reduce ambiguity as quickly as possible?
+- **Deterministic Key Finding**: Use set cover algorithms to find minimal distinguishing column sets
+- **Interactive Disambiguation**: Step-by-step column selection using value-of-information
+- **Multiple Policies**: Greedy coverage, mutual information, model-based, and random selection strategies
+- **Cost-Aware Selection**: Support for column acquisition costs and budget constraints
+- **Comprehensive Evaluation**: Tools for benchmarking and comparing different strategies
 
-It combines:
+## 📚 Use Cases
 
-  * classical **functional dependencies / minimal keys** (set cover on row pairs),
-  * information-theoretic **value-of-information** (mutual information between row identity and a column),
-  * and a light model-based layer for instance-specific, adaptive feature acquisition.
+### Entity Resolution & Deduplication
+- **Customer Matching**: Which fields (email, phone, address) uniquely identify customers?
+- **Product Catalogs**: What attributes distinguish similar items across suppliers?
 
-----
+### Interactive Data Collection  
+- **Survey Optimization**: Which demographic questions resolve identity ambiguity?
+- **Medical Diagnosis**: What tests provide maximum diagnostic information?
 
-## Table of Contents
+### Active Learning & Feature Selection
+- **Costly Features**: When API calls or lab tests are expensive, which ones matter most?
+- **Human-in-the-Loop**: Guide annotators to the most informative questions
 
-1. [Where this fits in the literature](#1-where-this-fits-in-the-literature)
-2. [Business Problems & Use Cases](#2-business-problems--use-cases)
-3. [Installation](#3-installation)
-4. [Core Concepts](#4-core-concepts)
-5. [API Overview](#5-api-overview)
-6. [Quick Start](#6-quick-start)
-7. [Documentation & Development](#7-documentation--development)
+## 🚀 Quick Start
 
----
------
-
-## 1. Where this fits in the literature
-
-### 1.1 Deterministic keys and set cover
-
-Suppose you have a subset of rows ($R$) from a DataFrame and want the smallest set of columns ($C$) such that every pair of rows in ($R$) differs on at least one column in ($C$). In database terms, ($C$) is a **key** for ($R$); in combinatorics, this is a **set cover** problem:
-
-  * **Universe ($U$):** all unordered pairs of rows ($\{i,j\}$) in ($R$).
-  * **Each column ($c$):** covers the pairs it distinguishes
-    $$S_c = \{\{i,j\} \in U : x_{ic} \neq x_{jc}\}$$
-  * **Goal:** find a minimum-cost ($C$) such that $$\bigcup_{c\in C} S_c = U$$
-
-Set cover is **NP-hard**; greedy set cover achieves a logarithmic approximation factor and is optimal up to constants under standard complexity assumptions. This is exactly what `minimal_key_greedy` implements for rows and columns.
-
-### 1.2 Mutual information and value-of-information
-
-Now suppose some columns are missing (because you haven't asked the user, run the test, or fetched the field yet). You have a candidate set of rows ($R$), and a belief over which row is "the truth":
-
-  * random variable ($\mathbf{R}$) = row identity,
-  * current evidence ($\mathbf{E}$) (already observed columns and their values),
-  * candidate column ($\mathbf{X}_j$) you might query next.
-
-The value of querying column ($j$) for disambiguating ($\mathbf{R}$) is the **conditional mutual information**:
-$$I(\mathbf{R}; \mathbf{X}_j \mid \mathbf{E}) = H(\mathbf{R} \mid \mathbf{E}) - \mathbb{E}_{\mathbf{X}_j \mid \mathbf{E}}[H(\mathbf{R} \mid \mathbf{E}, \mathbf{X}_j)]$$
-where ($H(\cdot)$) is Shannon entropy. Intuitively:
-
-  * $H(\mathbf{R} \mid \mathbf{E})$: how confused you are now about which row is correct;
-  * $H(\mathbf{R} \mid \mathbf{E}, \mathbf{X}_j)$: how confused you'll be after seeing ($\mathbf{X}_j$), averaged over the possible values it might take.
-
-Greedy "ask the column with largest $I(\mathbf{R}; \mathbf{X}_j \mid \mathbf{E})$" is the local, data-table version of:
-
-  * **information gain** in decision trees,
-  * **active feature acquisition** and **adaptive submodular optimization**,
-  * and **Bayesian experimental design / adaptive testing**.
-
-`candidate_mi` and `RowVoiModel.suggest_next_feature` implement this style of policy.
-
-### 1.3 Probabilistic & $\varepsilon$-relaxed disambiguation (conceptual)
-
-In practice:
-
-  * columns might be noisy or locally constant,
-  * you might be happy to stop with a small residual ambiguity.
-
-Two complementary notions of "$\varepsilon$-good enough" show up naturally:
-
-1.  **Posterior-based:** stop when the posterior on the most probable row exceeds ($1-\varepsilon$):
-    $$1 - \max_r p(r \mid E) \le \varepsilon$$
-2.  **Pairwise coverage-based:** stop when the fraction of unresolved row pairs is $\le \varepsilon$.
-
-The underlying math connects to:
-
-  * **probabilistic set cover / chance-constrained covering**, where coverage events are random;
-  * **stochastic submodular cover / adaptive submodular optimization**, where you choose columns sequentially and observe their realizations.
-
-`rowvoi`'s deterministic minimal keys and MI-based policies sit on top of this theory; the package is designed so that $\varepsilon$-style stopping rules and probabilistic coverage models can be added without changing the core API.
-
------
-
-## 2. Business Problems & Use Cases
-
-Some concrete places where "which columns distinguish these rows?" and "what should I ask next?" show up:
-
-### Entity Resolution & Data Deduplication
-
-  * **Customer Matching:** Merge customer databases by asking/planning which fields (**email, phone, address, DOB**) to verify so that a small set of checks uniquely identifies the right record.
-  * **Product Catalog Matching:** When multiple supplier SKUs look similar, decide which attributes (**brand, size, color, GTIN**) to compare to separate otherwise ambiguous items.
-
-### Interactive Data Cleaning
-
-  * **Record Validation:** Data quality issues may leave multiple plausible matches for a record. `rowvoi` can suggest which field to check next (e.g. **postal code vs last name**) to resolve the ambiguity.
-  * **Survey Data Linkage:** When linking survey responses to a master frame, choose which demographic questions to ask (or re-ask) to uniquely identify the record.
-
-### Active Learning & Human-in-the-Loop ML
-
-  * **Annotation Prioritization:** Treat each candidate match or cluster of rows as a decision problem and ask humans to label the fields that most reduce confusion.
-  * **Costly Feature Selection:** For models that can request expensive features (**lab tests, manual review, external API calls**), use value-of-information to decide which features are worth acquiring.
-
-### Fraud Detection & Investigation
-
-  * **Transaction Investigation:** When several transactions or identities look suspiciously similar, choose which account details or metadata fields to inspect first.
-  * **Identity Verification:** Build a short, adaptive script of verification questions that usually identifies a user with a handful of high-information questions.
-
------
-
-## 3\. Installation
+### Installation
 
 ```bash
 pip install rowvoi
 ```
 
-For development:
-
-```bash
-uv pip install -e ".[dev,docs]"
-```
-
------
-
-## 4. Core Concepts
-
-`rowvoi` is designed around a few simple ideas:
-
-  * **Rows as candidates:** A small set of **row indices** in a DataFrame `df` (e.g. `[12, 45, 101]`) that are plausible matches, models, or strategies.
-  * **Columns as questions:** DataFrame columns are **candidate features** you can use to distinguish those rows. Some may already be observed; others may be missing or costly.
-  * **Keys / minimal distinguishing sets:** A set of columns is a **key** for the candidate set if no two rows agree on all those columns. Minimal keys are the set-cover side of the problem.
-  * **`CandidateState`:** A lightweight object that tracks:
-      * which rows are still in play,
-      * your current posterior over them,
-      * which columns you've already queried and what values you saw.
-  * **Policies over columns:** Given a `CandidateState`, a policy (like `RowVoiModel`) suggests the next best column to query using **mutual information / expected entropy reduction**.
-
------
-
-## 5. API Overview
-
-### 5.1 Types (`rowvoi.types`)
-
-  * `RowIndex`: Type alias for row indices (usually `int`).
-  * `ColName`: Type alias for column labels (any hashable).
-  * `CandidateState`:
-    ```python
-    CandidateState(
-        candidate_rows: list[RowIndex],
-        posterior: dict[RowIndex, float],
-        observed_cols: list[ColName],
-        observed_values: dict[ColName, object],
-    )
-    ```
-    Represents the state of an interactive disambiguation session.
-
-### 5.2 Deterministic / Logical Methods (`rowvoi.logical`)
-
-These functions assume all relevant column values are known in `df` and solve the **minimal key / functional dependency** problem.
-
-  * `is_key(df, rows, cols) -> bool`: Check whether the columns in `cols` uniquely distinguish the rows in `rows` (no two rows have identical values on all `cols`).
-  * `minimal_key_exact(df, rows, columns=None, max_search_cols=20) -> list[ColName]`: Use exhaustive search / branch-and-bound over columns to find a **provably minimal key** for the specified rows. Exponential in the number of columns considered; `max_search_cols` bounds the search.
-  * `minimal_key_greedy(df, rows, columns=None, costs=None) -> list[ColName]`:
-      * Greedy **set cover on row pairs**:
-          * Universe = all unordered pairs of rows in `rows`,
-          * At each step, pick the column that distinguishes the most unresolved pairs (optionally normalized by cost),
-          * Stop when all pairs are separated.
-      * This is **fast** and comes with the standard logarithmic approximation guarantee for set cover.
-
-### 5.3 Mutual Information (`rowvoi.mi`)
-
-Local, instance-specific mutual information between row identity and a column.
-
-  * `candidate_mi(df, state: CandidateState, col: ColName) -> float`:
-      * Compute $I(\mathbf{R}; \mathbf{X}_{\text{col}} \mid \mathbf{E})$ where:
-          * $\mathbf{R}$ is "which row from `state.candidate_rows` is true?" with prior/posterior `state.posterior`,
-          * $\mathbf{E}$ is the current evidence encoded in `state.observed_cols` and `state.observed_values`.
-  * `best_feature_by_candidate_mi(df, state: CandidateState, candidate_cols=None) -> ColName`: Among the unobserved columns (default: all DataFrame columns not in `state.observed_cols`), return the one with **highest mutual information** with row identity.
-
-### 5.4 Model-Based Value of Information (`rowvoi.ml`)
-
-A small model class for reusing global information (e.g. value distributions, noise models) to make feature selection more robust.
-
-  * `RowVoiModel(smoothing=1e-6, noise=0.0, normalize_cols=True)`: A model-based policy for next-feature selection.
-  * `fit(df, discrete_cols=None, bins=3) -> RowVoiModel`: Optionally discretizes numeric columns and precomputes marginal distributions / metadata needed for MI approximation and noise handling.
-  * `suggest_next_feature(df, state: CandidateState, candidate_cols=None, objective="mi", feature_costs=None) -> FeatureSuggestion`:
-      * Suggest the next column to query for this state.
-      * `objective="mi"`: maximize expected mutual information ($I(\mathbf{R}; \mathbf{X}_j \mid \mathbf{E})$).
-      * `"mi_over_cost"`: maximize MI per unit feature cost.
-      * Returns a `FeatureSuggestion` object:
-        ```python
-        FeatureSuggestion(
-            col: ColName,
-            voi: float,              # estimated information gain
-            normalized_voi: float,   # optionally MI / H(X_j)
-            details: dict[str, float]
-        )
-        ```
-    (A separate helper like `run_until_epsilon` can be built on top to run a full session until posterior uncertainty is below a chosen $\varepsilon$.)
-
-### 5.5 Simulation & Benchmarking (`rowvoi.simulate`)
-
-Tools for testing and benchmarking policies on synthetic or real datasets.
-
-  * `sample_candidate_sets(df, k: int, n_samples: int, rng=None) -> list[list[RowIndex]]`: Randomly sample `n_samples` subsets of `k` rows from `df`.
-  * `AcquisitionResult`: A small record type storing results for one disambiguation episode (e.g., number of questions asked, whether the correct row was identified, which columns were used).
-  * `benchmark_policy(df, candidate_sets, policy, max_steps=10) -> BenchmarkResult`: Run a policy against a list of candidate sets and summarize its behavior. The policy is a callable like:
-    ```python
-    def policy(df, state: CandidateState) -> ColName:
-        ...
-    ```
-    or, for simpler cases, a function mapping (`df`, `rows`) to a column name.
-
------
-
-## 6. Quick Start
-
-### 6.1 Deterministic keys
+### Basic Example
 
 ```python
 import pandas as pd
-from rowvoi import minimal_key_greedy, minimal_key_exact
+from rowvoi import find_key, CandidateState, GreedyCoveragePolicy, DisambiguationSession
 
+# Your data
 df = pd.DataFrame({
-    "A": [1, 1, 2],
-    "B": [3, 4, 3],
-    "C": [5, 6, 7],
+    'name': ['Alice', 'Alice', 'Bob', 'Bob'],
+    'age': [25, 25, 30, 30], 
+    'city': ['NYC', 'LA', 'NYC', 'SF'],
+    'email': ['a1@x.com', 'a2@x.com', 'b1@x.com', 'b2@x.com']
 })
 
-# Find minimal distinguishing columns for rows 0 and 1
-rows = [0, 1]
+# Find minimal distinguishing columns
+rows = [0, 1, 2, 3]
+key = find_key(df, rows)  # -> ['email']
 
-print(minimal_key_greedy(df, rows))  # e.g. ['B']
-print(minimal_key_exact(df, rows))   # ['B']
+# Interactive disambiguation
+state = CandidateState.uniform([0, 1])  # Alice records
+policy = GreedyCoveragePolicy()
+session = DisambiguationSession(df, [0, 1], policy=policy)
+
+# Get next question
+suggestion = session.next_question()
+print(f"Ask about: {suggestion.col}")  # -> 'city' or 'email'
+
+# Observe an answer and update
+step = session.observe('city', 'NYC')  
+print(f"Remaining candidates: {session.state.candidate_rows}")  # -> [0]
 ```
 
-### 6.2 Model-based next-feature selection
+## 📖 API Overview
+
+### Core Types
 
 ```python
-from rowvoi import RowVoiModel, CandidateState
+from rowvoi import CandidateState, FeatureSuggestion
 
-# Fit model on historical data
-model = RowVoiModel().fit(df)
-
-# Two candidate rows, uniform prior, nothing observed yet
+# Track disambiguation state
 state = CandidateState(
-    candidate_rows=[0, 2],
-    posterior={0: 0.5, 2: 0.5},
-    observed_cols=[],
-    observed_values={},
+    candidate_rows=[0, 1, 2],           # Possible rows
+    posterior=np.array([0.5, 0.3, 0.2]), # Probabilities  
+    observed_cols={'name'},              # Asked columns
+    observed_values={'name': 'Alice'}    # Observed values
 )
 
-suggestion = model.suggest_next_feature(df, state)
-print(f"Next feature: {suggestion.col}")
-print(f"Estimated VoI: {suggestion.voi:.3f}")
+# Column recommendation
+suggestion = FeatureSuggestion(
+    col='age',                    # Recommended column
+    score=1.2,                   # Selection score
+    expected_voi=0.8,           # Expected information gain
+    marginal_cost=2.0           # Query cost
+)
 ```
 
-### 6.3 Mutual information directly
+### Deterministic Key Finding
 
 ```python
-from rowvoi import candidate_mi, best_feature_by_candidate_mi
+from rowvoi import KeyProblem, find_key, plan_key_path
 
-mi_A = candidate_mi(df, state, "A")
-print(f"MI between row ID and A: {mi_A:.3f}")
+# Find minimal key
+key = find_key(df, rows=[0,1,2], strategy="greedy")
 
-best_col = best_feature_by_candidate_mi(df, state)
-print(f"Best column by MI: {best_col}")
+# Different algorithms  
+key_exact = find_key(df, rows, strategy="exact")       # Optimal (slow)
+key_sa = find_key(df, rows, strategy="sa")             # Simulated annealing
+key_ga = find_key(df, rows, strategy="ga")             # Genetic algorithm
+
+# Plan acquisition sequence
+path = plan_key_path(df, rows, costs={'name': 1, 'email': 5})
+print(path.columns())  # -> ['name', 'age', ...]
 ```
 
-### 6.4 Benchmarking a policy
+### Interactive Policies
 
 ```python
-from rowvoi import sample_candidate_sets, benchmark_policy
+from rowvoi import GreedyCoveragePolicy, CandidateMIPolicy, MIPolicy, RandomPolicy
 
-# Sample 10 random pairs of rows
-candidate_sets = sample_candidate_sets(df, k=2, n_samples=10)
+# Greedy pairwise coverage
+policy = GreedyCoveragePolicy(
+    costs={'email': 5.0, 'name': 1.0},
+    objective='entropy'  # or 'pairs'
+)
 
-def simple_policy(df, state):
-    # use the model to suggest next feature
-    return model.suggest_next_feature(df, state).col
+# Mutual information on candidates only
+policy = CandidateMIPolicy(normalize=True)
 
-results = benchmark_policy(df, candidate_sets, policy=simple_policy)
-print(f"Average queries needed: {results.mean_queries:.2f}")
+# Model-based mutual information  
+from rowvoi import RowVoiModel
+model = RowVoiModel(noise=0.1).fit(df)
+policy = MIPolicy(model=model, objective='mi_over_cost')
+
+# Random baseline
+policy = RandomPolicy(seed=42)
 ```
 
------
+### Interactive Sessions
 
-## 7. Documentation & Development
+```python
+from rowvoi import DisambiguationSession, StopRules
 
-Full documentation and examples:
+# Create session
+session = DisambiguationSession(
+    df, [0,1,2,3], 
+    policy=GreedyCoveragePolicy()
+)
 
-👉 [https://gojiplus.github.io/rowvoi/](https://gojiplus.github.io/rowvoi/)
+# Manual interaction
+suggestion = session.next_question()
+step = session.observe('age', 25)
 
-**Tests**
+# Automated session
+stop = StopRules(max_steps=5, cost_budget=10.0, target_unique=True)
+steps = session.run(stop, true_row=1)  # Simulate answering
+print(f"Resolved in {len(steps)} steps")
+```
 
+### Evaluation & Benchmarking
+
+```python
+from rowvoi import sample_candidate_sets, evaluate_policies, evaluate_keys
+
+# Sample test cases
+candidate_sets = sample_candidate_sets(df, subset_size=4, n_samples=20)
+
+# Compare key-finding methods
+methods = {
+    'greedy': lambda df, rows: find_key(df, rows, strategy='greedy'),
+    'exact': lambda df, rows: find_key(df, rows, strategy='exact')
+}
+key_results = evaluate_keys(df, candidate_sets, methods)
+
+# Compare interactive policies  
+policies = {
+    'greedy': GreedyCoveragePolicy(),
+    'mi': CandidateMIPolicy(),
+    'random': RandomPolicy(seed=42)
+}
+policy_stats = evaluate_policies(df, candidate_sets, policies)
+for stat in policy_stats:
+    print(f"{stat.name}: {stat.mean_steps:.1f} steps, {stat.success_rate:.1%} success")
+```
+
+## 🔬 Advanced Features
+
+### Cost-Aware Selection
+
+```python
+# Define column costs
+costs = {
+    'name': 1.0,      # Cheap: already have
+    'age': 2.0,       # Moderate: need to ask  
+    'email': 10.0,    # Expensive: need verification
+    'ssn': 50.0       # Very expensive: sensitive
+}
+
+policy = GreedyCoveragePolicy(costs=costs)
+session = DisambiguationSession(df, rows, policy=policy, feature_costs=costs)
+
+# Budget-constrained planning
+path = plan_key_path(df, rows, costs=costs)
+affordable_cols = path.prefix_for_budget(budget=5.0)
+```
+
+### Model-Based Selection
+
+```python
+# Train on historical data
+model = RowVoiModel(
+    noise=0.05,           # Account for measurement noise
+    normalize_cols=True   # Normalize feature distributions
+).fit(df)
+
+# Use for adaptive selection
+policy = MIPolicy(model=model, feature_costs=costs)
+suggestion = policy.suggest(df, state)
+print(f"Expected VoI: {suggestion.expected_voi:.3f} bits")
+```
+
+### Probabilistic Methods
+
+```python
+from rowvoi import find_key_probabilistic, plan_key_path_probabilistic
+
+# Account for noise/uncertainty
+key = find_key_probabilistic(df, rows, noise_rate=0.1)
+path = plan_key_path_probabilistic(df, rows, noise_rate=0.1, costs=costs)
+```
+
+## 📊 Complete Examples
+
+### Example 1: Customer Deduplication
+
+```python
+import pandas as pd
+from rowvoi import find_key, GreedyCoveragePolicy, DisambiguationSession
+
+# Customer database with potential duplicates
+customers = pd.DataFrame({
+    'first_name': ['John', 'John', 'Jane', 'Jane'],
+    'last_name': ['Smith', 'Smith', 'Doe', 'Smith'], 
+    'email': ['j1@ex.com', 'j2@ex.com', 'jane@ex.com', 'j3@ex.com'],
+    'phone': ['555-0101', '555-0102', '555-0201', '555-0301'],
+    'zip_code': ['10001', '10002', '10001', '10001']
+})
+
+# Find minimal fields for disambiguation
+duplicates = [0, 1]  # Two "John Smith" records
+key = find_key(customers, duplicates)
+print(f"Minimal distinguishing fields: {key}")
+
+# Interactive disambiguation with costs
+costs = {'email': 1, 'phone': 2, 'zip_code': 1, 'first_name': 0, 'last_name': 0}
+policy = GreedyCoveragePolicy(costs=costs, objective='entropy')
+session = DisambiguationSession(customers, duplicates, policy=policy, feature_costs=costs)
+
+# Simulate resolving the duplicate
+suggestion = session.next_question()
+print(f"First question: {suggestion.col}")
+step = session.observe(suggestion.col, customers.iloc[0][suggestion.col])
+print(f"Resolved: {session.state.is_unique}")
+```
+
+### Example 2: Survey Optimization
+
+```python
+from rowvoi import CandidateMIPolicy, StopRules, evaluate_policies
+
+# Survey response data
+survey = pd.DataFrame({
+    'age_group': ['18-25', '26-35', '18-25', '36-45', '26-35'],
+    'income': ['<50k', '50-100k', '<50k', '>100k', '50-100k'],
+    'education': ['HS', 'College', 'HS', 'Graduate', 'College'],
+    'location': ['Urban', 'Suburban', 'Rural', 'Urban', 'Suburban']
+})
+
+# Compare question-asking strategies
+policies = {
+    'coverage': GreedyCoveragePolicy(objective='entropy'),
+    'mutual_info': CandidateMIPolicy(normalize=True),
+    'random': RandomPolicy(seed=42)
+}
+
+# Test on random respondent groups
+candidate_sets = sample_candidate_sets(survey, subset_size=3, n_samples=50)
+stop_rules = StopRules(max_steps=3, target_unique=True)
+
+stats = evaluate_policies(survey, candidate_sets, policies, stop=stop_rules)
+for stat in stats:
+    print(f"{stat.name}: {stat.mean_steps:.1f} questions, "
+          f"{stat.success_rate:.0%} identification rate")
+```
+
+## 🧪 Algorithm Details
+
+### Set Cover for Keys
+
+Finding minimal distinguishing columns is NP-hard set cover:
+- **Universe**: All pairs of rows that need distinguishing
+- **Sets**: Each column covers pairs it separates  
+- **Goal**: Minimum cost column set covering all pairs
+
+RowVoi implements:
+- **Greedy**: Fast O(nm log m) approximation with ln(m) ratio guarantee
+- **Exact**: Branch-and-bound for optimal solutions (small problems)
+- **Metaheuristics**: Simulated annealing and genetic algorithms for large problems
+
+### Value of Information
+
+For interactive selection, RowVoi uses mutual information:
+```
+I(RowID; Column | Observed) = H(RowID | Observed) - E[H(RowID | Observed, Column)]
+```
+
+Where:
+- `H(RowID | Observed)`: Current uncertainty (entropy) over which row is correct
+- `E[H(RowID | Observed, Column)]`: Expected uncertainty after observing the column
+- Higher mutual information = more disambiguation value
+
+### Policy Strategies
+
+- **GreedyCoveragePolicy**: Maximize newly distinguished pairs per cost
+- **CandidateMIPolicy**: Maximize mutual information on current candidates  
+- **MIPolicy**: Use fitted model for robust MI estimation with noise handling
+- **RandomPolicy**: Random selection baseline for comparison
+
+## 📝 Development
+
+### Running Tests
 ```bash
-make test
+uv run pytest tests/ -v
 ```
 
-**Linting & Formatting**
-
+### Code Quality
 ```bash
-make lint
-make format
+uv run ruff check .
+uv run mypy .
 ```
 
-**Build Docs**
-
+### Building Documentation
 ```bash
-make docs
+cd docs && make html
 ```
 
-**Local CI**
+## 🤝 Contributing
 
-```bash
-make ci-docker
-```
+Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
----
+## 📄 License
 
-## Citation
+MIT License - see [LICENSE](LICENSE) for details.
 
-If you use `rowvoi` in your research, please cite it using:
+## 📚 Citation
 
 ```bibtex
 @software{sood2025rowvoi,
   author       = {Sood, Gaurav},
-  title        = {RowVoi: Row-wise Value of Information for Data Collection},
+  title        = {RowVoi: Interactive Row Disambiguation with Value-of-Information},
   year         = {2025},
   publisher    = {GitHub},
   url          = {https://github.com/gojiplus/rowvoi},
-  version      = {0.1.0}
+  version      = {0.2.0}
 }
 ```
-
-Or use the [CITATION.cff](CITATION.cff) file for automatic citation generation in GitHub.
-

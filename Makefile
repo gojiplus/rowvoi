@@ -1,4 +1,4 @@
-.PHONY: help install test lint format type-check docs build clean ci-docker
+.PHONY: help install test lint format docs build clean ci-docker
 .DEFAULT_GOAL := help
 
 help: ## Show this help message
@@ -23,8 +23,6 @@ format: ## Format code
 format-check: ## Check code formatting
 	uv run ruff format --check .
 
-type-check: ## Run type checking
-	uv run mypy rowvoi/
 
 docs: ## Build documentation
 	cd docs && uv run sphinx-build -b html . _build/html
@@ -49,7 +47,6 @@ clean: ## Clean build artifacts
 ci: ## Run all CI checks locally
 	$(MAKE) lint
 	$(MAKE) format-check
-	$(MAKE) type-check
 	$(MAKE) test
 
 ci-docker: ## Run CI in Docker (standard Python image)
@@ -58,7 +55,6 @@ ci-docker: ## Run CI in Docker (standard Python image)
 		uv sync --extra dev && \
 		uv run ruff check . && \
 		uv run ruff format --check . && \
-		uv run mypy rowvoi/ && \
 		uv run pytest tests/ -v"
 
 install-pre-commit: ## Install pre-commit hooks

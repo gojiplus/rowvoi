@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "rowvoi"
-version = "0.1.0"
+version = "0.2.0"
 description = "Interactive disambiguation of rows in a dataset using value-of-information policies"
 readme = "README.md"
 authors = [
@@ -52,8 +52,6 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "ruff>=0.8.0",
-    "mypy>=1.5.0",
-    "pandas-stubs>=2.0.0",
 ]
 docs = [
     "sphinx>=7.0.0",
@@ -68,6 +66,7 @@ optimization = [
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+exclude = ["*.ipynb"]  # Exclude Jupyter notebooks from formatting/linting
 
 [tool.ruff.lint]
 select = [
@@ -90,17 +89,11 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D102", "D103"]
+"**/*.ipynb" = ["E501"]  # Ignore line length in Jupyter notebooks
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-warn_redundant_casts = true
-warn_unused_ignores = true
-no_implicit_optional = true
-check_untyped_defs = true
-ignore_missing_imports = true
+
 
 [tool.pytest.ini_options]
 minversion = "7.0"

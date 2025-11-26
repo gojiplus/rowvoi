@@ -1,0 +1,21 @@
+customer_id,first_name,last_name,email,phone,address,city,state,zip_code,company,registration_date
+1,John,Smith,john.smith@email.com,555-0101,123 Main St,Springfield,IL,62701,Acme Corp,2023-01-15
+2,John,Smith,j.smith@email.com,555-0101,123 Main Street,Springfield,IL,62701,Acme Corporation,2023-01-16
+3,Sarah,Johnson,sarah.j@company.com,555-0202,456 Oak Ave,Chicago,IL,60601,TechCorp,2023-02-01
+4,Michael,Brown,mike.brown@work.com,555-0303,789 Pine Rd,Aurora,IL,60502,DataSystems,2023-02-15
+5,Sarah,Johnson,sarah.johnson@company.com,555-0202,456 Oak Avenue,Chicago,IL,60601,TechCorp Inc,2023-02-02
+6,Emily,Davis,emily.d@email.com,555-0404,321 Elm St,Naperville,IL,60540,WebSolutions,2023-03-01
+7,Michael,Brown,m.brown@work.com,555-0303,789 Pine Road,Aurora,IL,60502,Data Systems LLC,2023-02-16
+8,Robert,Wilson,robert.w@mail.com,555-0505,654 Maple Dr,Rockford,IL,61101,CloudTech,2023-03-15
+9,Jennifer,Taylor,jen.taylor@biz.com,555-0606,987 Cedar Ln,Peoria,IL,61601,StartupInc,2023-04-01
+10,Emily,Davis,e.davis@email.com,555-0404,321 Elm Street,Naperville,IL,60540,Web Solutions,2023-03-02
+11,David,Anderson,david.a@corp.com,555-0707,147 Birch Way,Champaign,IL,61820,InnovateCorp,2023-04-15
+12,Jennifer,Taylor,jennifer.taylor@biz.com,555-0606,987 Cedar Lane,Peoria,IL,61601,Startup Inc.,2023-04-02
+13,Lisa,White,lisa.white@firm.com,555-0808,258 Willow Ct,Bloomington,IL,61701,ConsultingFirm,2023-05-01
+14,Robert,Wilson,r.wilson@mail.com,555-0505,654 Maple Drive,Rockford,IL,61101,Cloud Technologies,2023-03-16
+15,Christopher,Lee,chris.lee@tech.com,555-0909,369 Ash Blvd,Decatur,IL,62521,TechSolutions,2023-05-15
+16,David,Anderson,d.anderson@corp.com,555-0707,147 Birch Way,Champaign,IL,61820,Innovate Corporation,2023-04-16
+17,Amanda,Clark,amanda.c@service.com,555-1010,741 Poplar St,Springfield,IL,62703,ServicePro,2023-06-01
+18,Lisa,White,l.white@firm.com,555-0808,258 Willow Court,Bloomington,IL,61701,Consulting Firm LLC,2023-05-02
+19,James,Martinez,james.m@company.com,555-1111,852 Hickory Ave,Quincy,IL,62301,Manufacturing Co,2023-06-15
+20,Christopher,Lee,c.lee@tech.com,555-0909,369 Ash Boulevard,Decatur,IL,62521,Tech Solutions Inc,2023-05-16

@@ -1,9 +1,10 @@
 """Shared test fixtures for rowvoi tests."""
 
+import numpy as np
 import pandas as pd
 import pytest
 
-from rowvoi.types import CandidateState
+from rowvoi import CandidateState
 
 
 @pytest.fixture
@@ -24,8 +25,8 @@ def simple_state():
     """Return simple candidate state for testing."""
     return CandidateState(
         candidate_rows=[0, 1],
-        posterior={0: 0.6, 1: 0.4},
-        observed_cols=[],
+        posterior=np.array([0.6, 0.4]),
+        observed_cols=set(),
         observed_values={},
     )
 
@@ -35,7 +36,7 @@ def multi_state():
     """Multi-candidate state for testing."""
     return CandidateState(
         candidate_rows=[0, 1, 2],
-        posterior={0: 0.5, 1: 0.3, 2: 0.2},
-        observed_cols=["A"],
+        posterior=np.array([0.5, 0.3, 0.2]),
+        observed_cols={"A"},
         observed_values={"A": 1},
     )

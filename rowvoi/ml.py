@@ -34,39 +34,14 @@ see :mod:`rowvoi.mi`.
 
 import math
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
 from typing import Self
 
+import numpy as np
 import pandas as pd
 
-from .types import CandidateState, ColName, RowIndex
+from .core import CandidateState, ColName, FeatureSuggestion, RowIndex
 
-
-@dataclass(frozen=True, slots=True)
-class FeatureSuggestion:
-    """Result of evaluating a feature for expected value of information.
-
-    Attributes
-    ----------
-    col : ColName
-        The column name suggested to query next.
-    voi : float
-        The estimated mutual information (in bits) between the row
-        identity and the feature value, given current evidence.
-    normalized_voi : float
-        The mutual information divided by the entropy of the feature
-        distribution in the candidate set.  This can be used to
-        prevent high‑cardinality features from dominating purely due
-        to their large entropy.
-    details : Dict[str, float]
-        Auxiliary information about the calculation, such as the
-        prior entropy and expected conditional entropy.
-    """
-
-    col: ColName
-    voi: float
-    normalized_voi: float
-    details: dict[str, float]
+# FeatureSuggestion is now imported from core.py
 
 
 class RowVoiModel:
@@ -248,6 +223,14 @@ class RowVoiModel:
                     dist[v] = self.noise / (len(candidate_values) - 1)
         return dist
 
+    def _get_posterior_prob(self, state: CandidateState, row: RowIndex) -> float:
+        """Get posterior probability for a row from the state."""
+        try:
+            idx = list(state.candidate_rows).index(row)
+            return state.posterior[idx]
+        except (ValueError, IndexError):
+            return 0.0
+
     def _expected_cond_entropy(
         self,
         state: CandidateState,
@@ -303,7 +286,7 @@ class RowVoiModel:
         for v in unique_values:
             total = 0.0
             for r in rows:
-                p_r = state.posterior.get(r, 0.0)
+                p_r = self._get_posterior_prob(state, r)
                 total += p_r * p_x_given_r[r][v]
             p_x[v] = total
         # Compute expected conditional entropy
@@ -314,11 +297,11 @@ class RowVoiModel:
             # Posterior distribution over R given X=v
             denom = 0.0
             for r in rows:
-                denom += state.posterior.get(r, 0.0) * p_x_given_r[r][v]
+                denom += self._get_posterior_prob(state, r) * p_x_given_r[r][v]
             # Compute entropy for this branch
             h_r_given_v = 0.0
             for r in rows:
-                num = state.posterior.get(r, 0.0) * p_x_given_r[r][v]
+                num = self._get_posterior_prob(state, r) * p_x_given_r[r][v]
                 if denom <= 0.0:
                     continue
                 p_r_given = num / denom
@@ -394,11 +377,7 @@ class RowVoiModel:
         best_suggestion: FeatureSuggestion | None = None
         for col in candidate_cols:
             # Compute prior entropy of R given current state
-            h_prior = 0.0
-            for r in state.candidate_rows:
-                p_r = state.posterior.get(r, 0.0)
-                if p_r > 0.0:
-                    h_prior -= p_r * math.log2(p_r)
+            h_prior = state.entropy
             # Compute expected conditional entropy using global frequencies and noise
             h_cond = self._expected_cond_entropy(state, col)
             voi = h_prior - h_cond
@@ -409,8 +388,10 @@ class RowVoiModel:
                 values = [self._df.iloc[r][col] for r in state.candidate_rows]
                 # compute weighted histogram p_x
                 p_x: dict[object, float] = {}
-                for r, v in zip(state.candidate_rows, values, strict=True):
-                    p_x[v] = p_x.get(v, 0.0) + state.posterior.get(r, 0.0)
+                for i, (_r, v) in enumerate(
+                    zip(state.candidate_rows, values, strict=True)
+                ):
+                    p_x[v] = p_x.get(v, 0.0) + state.posterior[i]
                 # compute entropy of X in candidate set
                 h_x = 0.0
                 for p_val in p_x.values():
@@ -434,18 +415,32 @@ class RowVoiModel:
             if best_suggestion is None:
                 best_suggestion = FeatureSuggestion(
                     col=col,
-                    voi=voi,
-                    normalized_voi=normalized_voi,
-                    details={"entropy_before": h_prior, "entropy_after": h_cond},
+                    score=score,
+                    expected_voi=voi,
+                    marginal_cost=(
+                        feature_costs.get(col, 1.0) if feature_costs else 1.0
+                    ),
+                    debug={
+                        "entropy_before": h_prior,
+                        "entropy_after": h_cond,
+                        "normalized_voi": normalized_voi,
+                    },
                 )
                 best_score = score
             else:
                 if score > best_score + 1e-12:
                     best_suggestion = FeatureSuggestion(
                         col=col,
-                        voi=voi,
-                        normalized_voi=normalized_voi,
-                        details={"entropy_before": h_prior, "entropy_after": h_cond},
+                        score=score,
+                        expected_voi=voi,
+                        marginal_cost=(
+                            feature_costs.get(col, 1.0) if feature_costs else 1.0
+                        ),
+                        debug={
+                            "entropy_before": h_prior,
+                            "entropy_after": h_cond,
+                            "normalized_voi": normalized_voi,
+                        },
                     )
                     best_score = score
                 elif abs(score - best_score) < 1e-12 and str(col) < str(
@@ -454,9 +449,16 @@ class RowVoiModel:
                     # tie-break lexicographically
                     best_suggestion = FeatureSuggestion(
                         col=col,
-                        voi=voi,
-                        normalized_voi=normalized_voi,
-                        details={"entropy_before": h_prior, "entropy_after": h_cond},
+                        score=score,
+                        expected_voi=voi,
+                        marginal_cost=(
+                            feature_costs.get(col, 1.0) if feature_costs else 1.0
+                        ),
+                        debug={
+                            "entropy_before": h_prior,
+                            "entropy_after": h_cond,
+                            "normalized_voi": normalized_voi,
+                        },
                     )
                     best_score = score
         return best_suggestion
@@ -522,8 +524,8 @@ class RowVoiModel:
         # Copy the state so that initial_state is not modified.
         state = CandidateState(
             candidate_rows=list(initial_state.candidate_rows),
-            posterior=dict(initial_state.posterior),
-            observed_cols=list(initial_state.observed_cols),
+            posterior=initial_state.posterior.copy(),
+            observed_cols=set(initial_state.observed_cols),
             observed_values=dict(initial_state.observed_values),
         )
         history: list[FeatureSuggestion] = []
@@ -546,26 +548,25 @@ class RowVoiModel:
             # Simulate acquiring the value from the true row
             true_value = df.iloc[true_row][col]
             # Record observation
-            state.observed_cols.append(col)
+            state.observed_cols.add(col)
             state.observed_values[col] = true_value
             # Update posterior: zero out rows with different value, renormalize
-            new_posterior: dict[RowIndex, float] = {}
+            new_posterior = np.zeros(len(state.candidate_rows))
             total_mass = 0.0
-            for r in state.candidate_rows:
-                p_r = state.posterior.get(r, 0.0)
+            for i, r in enumerate(state.candidate_rows):
+                p_r = state.posterior[i]
                 if df.iloc[r][col] == true_value:
-                    new_posterior[r] = p_r
+                    new_posterior[i] = p_r
                     total_mass += p_r
                 else:
-                    new_posterior[r] = 0.0
+                    new_posterior[i] = 0.0
             if total_mass > 0.0:
-                for r in new_posterior:
-                    new_posterior[r] /= total_mass
+                new_posterior /= total_mass
             state.posterior = new_posterior
             # Update candidate_rows list to those with nonzero posterior
-            state.candidate_rows = [
-                r for r in state.candidate_rows if state.posterior.get(r, 0.0) > 0.0
-            ]
+            nonzero_indices = np.where(state.posterior > 0.0)[0]
+            state.candidate_rows = [state.candidate_rows[i] for i in nonzero_indices]
+            state.posterior = state.posterior[nonzero_indices]
             # Append suggestion to history
             history.append(suggestion)
             step += 1

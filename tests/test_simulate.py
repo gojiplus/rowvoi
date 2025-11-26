@@ -1,192 +1,254 @@
-"""Tests for rowvoi.simulate module."""
+"""Tests for simulation and evaluation tools (now in eval module)."""
 
 import pandas as pd
 import pytest
 
-from rowvoi.ml import RowVoiModel
-from rowvoi.simulate import AcquisitionResult, benchmark_policy, sample_candidate_sets
+from rowvoi import (
+    CandidateMIPolicy,
+    GreedyCoveragePolicy,
+    RandomPolicy,
+    StopRules,
+    benchmark_policy,
+    evaluate_keys,
+    evaluate_policies,
+    find_key,
+    sample_candidate_sets,
+)
+
+
+@pytest.fixture
+def sample_df():
+    """Create a sample DataFrame for testing."""
+    return pd.DataFrame(
+        {
+            "A": [1, 1, 2, 2, 3, 3],
+            "B": [1, 2, 1, 2, 1, 2],
+            "C": [1, 1, 1, 2, 2, 2],
+            "D": list(range(6)),
+        }
+    )
 
 
 class TestSampleCandidateSets:
-    """Tests for sample_candidate_sets function."""
+    """Test candidate set sampling."""
 
-    def test_sample_basic(self, sample_df):
-        """Test basic candidate set sampling."""
-        candidate_sets = sample_candidate_sets(
-            len(sample_df), subset_size=2, n_samples=5
+    def test_basic_sampling(self, sample_df):
+        sets = sample_candidate_sets(
+            sample_df, subset_size=3, n_samples=5, random_state=42
         )
 
-        assert len(candidate_sets) == 5
-        for candidates in candidate_sets:
-            assert len(candidates) == 2
-            assert all(0 <= idx < len(sample_df) for idx in candidates)
-            assert len(set(candidates)) == 2  # No duplicates
+        assert len(sets) == 5
+        for s in sets:
+            assert len(s) == 3
+            assert all(0 <= idx < len(sample_df) for idx in s)
+            assert len(set(s)) == 3  # No duplicates
 
-    def test_sample_k_larger_than_df(self, sample_df):
-        """Test when k is larger than DataFrame size."""
-        # Should handle gracefully or raise appropriate error
-        with pytest.raises((ValueError, IndexError)):
-            sample_candidate_sets(len(sample_df), subset_size=10, n_samples=5)
-
-    def test_sample_empty_df(self):
-        """Test sampling from empty DataFrame."""
-        empty_df = pd.DataFrame()
-        with pytest.raises((ValueError, IndexError)):
-            sample_candidate_sets(len(empty_df), subset_size=2, n_samples=5)
-
-    def test_sample_k_equals_df_size(self, sample_df):
-        """Test when k equals DataFrame size."""
-        candidate_sets = sample_candidate_sets(
-            len(sample_df), subset_size=len(sample_df), n_samples=3
-        )
-
-        # All should be the same (all rows)
-        for candidates in candidate_sets:
-            assert set(candidates) == set(range(len(sample_df)))
-
-    def test_sample_deterministic_with_seed(self, sample_df):
-        """Test reproducibility with random seed."""
-        # Use the rng parameter for reproducibility
-        import random
-
-        rng1 = random.Random(42)
+    def test_deterministic_with_seed(self, sample_df):
         sets1 = sample_candidate_sets(
-            len(sample_df), subset_size=2, n_samples=5, rng=rng1
+            sample_df, subset_size=3, n_samples=5, random_state=42
         )
 
-        rng2 = random.Random(42)
         sets2 = sample_candidate_sets(
-            len(sample_df), subset_size=2, n_samples=5, rng=rng2
+            sample_df, subset_size=3, n_samples=5, random_state=42
         )
 
-        # Should be identical
         assert sets1 == sets2
 
+    def test_different_subset_sizes(self, sample_df):
+        for size in [1, 2, 3, 4, 5]:
+            sets = sample_candidate_sets(
+                sample_df, subset_size=size, n_samples=3, random_state=42
+            )
+            assert all(len(s) == size for s in sets)
 
-class TestAcquisitionResult:
-    """Tests for AcquisitionResult dataclass."""
+    def test_invalid_subset_size(self, sample_df):
+        with pytest.raises(ValueError):
+            sample_candidate_sets(
+                sample_df,
+                subset_size=10,  # Larger than DataFrame
+                n_samples=1,
+            )
 
-    def test_creation(self):
-        """Test basic creation."""
-        result = AcquisitionResult(
-            subset_size=3,
-            steps_used=2,
-            unique_identified=True,
-            optimal_steps=2,
-            cols_used=["A", "B"],
+
+class TestEvaluateKeys:
+    """Test key evaluation functionality."""
+
+    def test_basic_evaluation(self, sample_df):
+        candidate_sets = [[0, 1, 2], [2, 3, 4]]
+
+        methods = {
+            "greedy": lambda df, rows: find_key(df, rows, strategy="greedy"),
+        }
+
+        results = evaluate_keys(sample_df, candidate_sets, methods)
+
+        assert len(results) == 2  # One result per candidate set
+        for result in results:
+            assert result.method == "greedy"
+            assert isinstance(result.key, list)
+            assert result.pair_coverage >= 0
+            assert result.runtime_sec >= 0
+
+    def test_with_costs(self, sample_df):
+        candidate_sets = [[0, 1, 2, 3]]
+        costs = {"A": 1, "B": 2, "C": 5, "D": 10}
+
+        methods = {
+            "greedy": lambda df, rows: find_key(df, rows, costs=costs),
+        }
+
+        results = evaluate_keys(sample_df, candidate_sets, methods, costs=costs)
+
+        assert len(results) == 1
+        result = results[0]
+        assert result.key_cost > 0
+        assert result.key_cost == sum(costs.get(c, 1) for c in result.key)
+
+    def test_multiple_methods(self, sample_df):
+        candidate_sets = [[0, 1, 2]]
+
+        methods = {
+            "greedy": lambda df, rows: find_key(df, rows, strategy="greedy"),
+            "exact": lambda df, rows: find_key(
+                df, rows, strategy="exact", time_limit=0.1
+            ),
+        }
+
+        results = evaluate_keys(sample_df, candidate_sets, methods)
+
+        assert len(results) == 2  # Two methods
+        method_names = [r.method for r in results]
+        assert "greedy" in method_names
+        assert "exact" in method_names
+
+
+class TestEvaluatePolicies:
+    """Test policy evaluation functionality."""
+
+    def test_basic_policy_evaluation(self, sample_df):
+        candidate_sets = [[0, 1, 2, 3], [2, 3, 4, 5]]
+
+        policies = {
+            "greedy": GreedyCoveragePolicy(),
+            "random": RandomPolicy(seed=42),
+        }
+
+        stats = evaluate_policies(
+            sample_df,
+            candidate_sets,
+            policies,
+            stop=StopRules(max_steps=3),
+            n_repeats=2,
         )
 
-        assert result.subset_size == 3
-        assert result.steps_used == 2
-        assert result.unique_identified is True
-        assert result.optimal_steps == 2
-        assert result.cols_used == ["A", "B"]
+        assert len(stats) == 2  # Two policies
+        for stat in stats:
+            assert stat.mean_steps >= 0
+            assert stat.mean_steps <= 3  # Max steps constraint
+            assert stat.mean_cost >= 0
+            assert 0 <= stat.success_rate <= 1
+
+    def test_with_feature_costs(self, sample_df):
+        candidate_sets = [[0, 1, 2, 3]]
+        costs = {"A": 1, "B": 2, "C": 3, "D": 4}
+
+        policies = {
+            "greedy": GreedyCoveragePolicy(costs=costs),
+        }
+
+        stats = evaluate_policies(
+            sample_df,
+            candidate_sets,
+            policies,
+            feature_costs=costs,
+            stop=StopRules(cost_budget=5.0),
+        )
+
+        assert len(stats) == 1
+        assert stats[0].mean_cost <= 5.0  # Budget constraint
+
+    def test_different_stop_rules(self, sample_df):
+        candidate_sets = [[0, 1, 2, 3]]
+
+        policies = {
+            "mi": CandidateMIPolicy(),
+        }
+
+        # Test with uniqueness target
+        stats1 = evaluate_policies(
+            sample_df, candidate_sets, policies, stop=StopRules(target_unique=True)
+        )
+
+        # Test with epsilon posterior
+        stats2 = evaluate_policies(
+            sample_df, candidate_sets, policies, stop=StopRules(epsilon_posterior=0.1)
+        )
+
+        assert len(stats1) == 1
+        assert len(stats2) == 1
 
 
 class TestBenchmarkPolicy:
-    """Tests for benchmark_policy function."""
+    """Test policy benchmarking functionality."""
 
-    def test_benchmark_basic(self, sample_df):
-        """Test basic policy benchmarking."""
-        # Create and fit a model
-        model = RowVoiModel().fit(sample_df)
+    def test_basic_benchmark(self, sample_df):
+        policy = GreedyCoveragePolicy()
 
-        # Test with subset sizes
-        subset_sizes = [2, 3]
-
-        result = benchmark_policy(sample_df, model, subset_sizes, n_samples=3)
-
-        # Should return dict keyed by subset size
-        assert isinstance(result, dict)
-        assert set(result.keys()) == set(subset_sizes)
-
-        # Each subset size should have list of AcquisitionResults
-        for size in subset_sizes:
-            assert isinstance(result[size], list)
-            assert len(result[size]) == 3  # n_samples
-
-            for acq_result in result[size]:
-                assert isinstance(acq_result, AcquisitionResult)
-                assert acq_result.subset_size == size
-                assert isinstance(acq_result.steps_used, int)
-                assert isinstance(acq_result.unique_identified, bool)
-                assert isinstance(acq_result.cols_used, list)
-
-    def test_benchmark_with_fitted_model(self, sample_df):
-        """Test benchmarking with a fitted model."""
-        # Fit model to sample data
-        model = RowVoiModel(noise=0.1).fit(sample_df)
-
-        subset_sizes = [2]
-        result = benchmark_policy(sample_df, model, subset_sizes, n_samples=5)
-
-        # Should have reasonable results
-        assert len(result[2]) == 5
-
-        # Most simulations should succeed in reasonable steps
-        steps_used = [r.steps_used for r in result[2]]
-        assert all(steps >= 0 for steps in steps_used)
-        assert all(steps <= len(sample_df.columns) for steps in steps_used)
-
-    def test_benchmark_single_row_subsets(self, sample_df):
-        """Test benchmarking with single-row subsets."""
-        model = RowVoiModel().fit(sample_df)
-
-        subset_sizes = [1]
-        result = benchmark_policy(sample_df, model, subset_sizes, n_samples=3)
-
-        # Single-row subsets should need 0 steps
-        for acq_result in result[1]:
-            assert acq_result.steps_used == 0
-            assert acq_result.unique_identified is True
-
-    def test_benchmark_empty_subset_sizes(self, sample_df):
-        """Test benchmarking with empty subset sizes list."""
-        model = RowVoiModel().fit(sample_df)
-
-        result = benchmark_policy(sample_df, model, [], n_samples=3)
-
-        # Should return empty dict
-        assert result == {}
-
-    def test_benchmark_with_costs(self, sample_df):
-        """Test benchmarking with feature costs."""
-        model = RowVoiModel().fit(sample_df)
-
-        # Assign different costs to features
-        feature_costs = dict.fromkeys(sample_df.columns, 1.0)
-        feature_costs["A"] = 10.0  # Make A very expensive
-
-        result = benchmark_policy(
+        results = benchmark_policy(
             sample_df,
-            model,
-            [2],
-            n_samples=2,
-            objective="mi_over_cost",
-            feature_costs=feature_costs,
+            policy,
+            subset_sizes=[2, 3],
+            n_samples=3,
+            compute_optimal=False,
+            random_state=42,
         )
 
-        # Should still work with costs
-        assert len(result[2]) == 2
-        for acq_result in result[2]:
-            assert isinstance(acq_result, AcquisitionResult)
+        assert len(results) == 2  # Two subset sizes
+        assert 2 in results
+        assert 3 in results
 
-    def test_benchmark_reproducibility(self, sample_df):
-        """Test that benchmarks are reproducible with same random seed."""
-        import random
+        for size, size_results in results.items():
+            assert len(size_results) == 3  # n_samples
+            for result in size_results:
+                assert result.subset_size == size
+                assert result.steps_used >= 0
+                assert isinstance(result.unique_identified, bool)
 
-        model = RowVoiModel().fit(sample_df)
+    def test_with_optimal_computation(self, sample_df):
+        # Use small DataFrame for faster optimal computation
+        small_df = sample_df[["A", "B"]].iloc[:4]
+        policy = GreedyCoveragePolicy()
 
-        # Run with same seed twice
-        rng1 = random.Random(42)
-        result1 = benchmark_policy(sample_df, model, [2], n_samples=3, rng=rng1)
+        results = benchmark_policy(
+            small_df,
+            policy,
+            subset_sizes=[2],
+            n_samples=2,
+            compute_optimal=True,
+            max_cols_for_exact=2,
+            random_state=42,
+        )
 
-        rng2 = random.Random(42)
-        result2 = benchmark_policy(sample_df, model, [2], n_samples=3, rng=rng2)
+        for result in results[2]:
+            # Optimal steps might be computed
+            if result.optimal_steps is not None:
+                assert result.optimal_steps >= 0
+                assert result.optimal_steps <= result.steps_used
 
-        # Results should be identical
-        assert len(result1[2]) == len(result2[2])
-        for r1, r2 in zip(result1[2], result2[2], strict=True):
-            assert r1.steps_used == r2.steps_used
-            assert r1.cols_used == r2.cols_used
-            assert r1.unique_identified == r2.unique_identified
+    def test_with_costs(self, sample_df):
+        costs = {"A": 1, "B": 2, "C": 3, "D": 4}
+        policy = GreedyCoveragePolicy(costs=costs)
+
+        results = benchmark_policy(
+            sample_df,
+            policy,
+            subset_sizes=[3],
+            n_samples=2,
+            feature_costs=costs,
+            random_state=42,
+        )
+
+        assert len(results[3]) == 2
+        for result in results[3]:
+            assert result.cols_used is not None
+            assert all(c in sample_df.columns for c in result.cols_used)
