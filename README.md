@@ -1,4 +1,4 @@
-# rowvoi: Interactive row disambiguation with value-of-information
+# rowvoi: Minimal keys and row-wise value-of-information for disambiguating tabular records
 
 [![PyPI version](https://img.shields.io/pypi/v/rowvoi.svg)](https://pypi.org/project/rowvoi/)
 [![CI](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml/badge.svg)](https://github.com/gojiplus/rowvoi/actions/workflows/ci.yml)
