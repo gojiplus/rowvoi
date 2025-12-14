@@ -149,9 +149,7 @@ def benchmark_algorithms(
     problem = KeyProblem(df, rows, costs=costs)
     total_pairs = len(rows) * (len(rows) - 1) // 2
 
-    print(
-        f"\n  🎯 Benchmarking {len(algorithms)} algorithms on {len(rows)} rows..."
-    )
+    print(f"\n  🎯 Benchmarking {len(algorithms)} algorithms on {len(rows)} rows...")
     print(f"     Total pairs to distinguish: {total_pairs}")
 
     for algo in algorithms:
@@ -250,13 +248,9 @@ def analyze_dataset_properties(df: pd.DataFrame, dataset_name: str):
     high_card_cols = [col for col in df.columns if df[col].nunique() >= len(df) * 0.8]
 
     if low_card_cols:
-        print(
-            f"   ⚠️  Low-cardinality columns (≤2 values): {len(low_card_cols)}"
-        )
+        print(f"   ⚠️  Low-cardinality columns (≤2 values): {len(low_card_cols)}")
     if high_card_cols:
-        print(
-            f"   ⚠️  High-cardinality columns (≥80% unique): {len(high_card_cols)}"
-        )
+        print(f"   ⚠️  High-cardinality columns (≥80% unique): {len(high_card_cols)}")
 
 
 def main():
@@ -332,13 +326,9 @@ def main():
     print("\n💡 KEY INSIGHTS:")
     print("   • Greedy algorithm provides good approximation quickly")
     print("   • Exact solutions feasible for small problems (<15 columns)")
-    print(
-        "   • Metaheuristics (SA, GA) can improve on greedy for larger problems"
-    )
+    print("   • Metaheuristics (SA, GA) can improve on greedy for larger problems")
     print("   • Column costs significantly impact optimal column selection")
-    print(
-        "   • Path planning enables budget-constrained and progressive selection"
-    )
+    print("   • Path planning enables budget-constrained and progressive selection")
     print(
         "\n📖 For interactive selection with unknown data, "
         "see predictive_selection_demo.py"

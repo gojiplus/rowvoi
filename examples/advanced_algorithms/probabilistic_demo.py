@@ -160,9 +160,7 @@ try:
 
     print("\n   Deterministic path order:")
     for i, step in enumerate(det_path.steps[:4]):
-        print(
-            f"     {i + 1}. {step.col}: covers {step.newly_covered_pairs} pairs"
-        )
+        print(f"     {i + 1}. {step.col}: covers {step.newly_covered_pairs} pairs")
         print(
             f"        Cost: {step.marginal_cost:.1f}, "
             f"Cumulative: {step.cumulative_cost:.1f}"
@@ -200,9 +198,7 @@ try:
     print(f"\n   Session completed in {len(steps)} steps:")
     for i, step in enumerate(steps, 1):
         print(f"     Step {i}: {step.col} = {step.observed_value}")
-        print(
-            f"       Entropy: {step.entropy_before:.2f} → {step.entropy_after:.2f}"
-        )
+        print(f"       Entropy: {step.entropy_before:.2f} → {step.entropy_after:.2f}")
         total_cost = sum(s.cost for s in steps[:i])
         print(f"       Cost: {step.cost:.1f} (Total: {total_cost:.1f})")
 

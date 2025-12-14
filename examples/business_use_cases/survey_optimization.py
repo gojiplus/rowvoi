@@ -277,9 +277,7 @@ def compare_policies_systematic(df: pd.DataFrame, dataset_name: str):
         print("   Results Summary:")
         for stat in stats:
             print(f"   📊 {stat.name}:")
-            print(
-                f"      Avg steps: {stat.mean_steps:.1f} ± {stat.std_steps:.1f}"
-            )
+            print(f"      Avg steps: {stat.mean_steps:.1f} ± {stat.std_steps:.1f}")
             print(f"      Avg cost: {stat.mean_cost:.1f} ± {stat.std_cost:.1f}")
             print(f"      Success rate: {stat.success_rate:.1%}")
             print(f"      Final entropy: {stat.mean_final_entropy:.2f}")

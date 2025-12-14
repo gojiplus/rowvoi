@@ -202,9 +202,7 @@ def demo_interactive_session():
     print(f"\nSession completed in {len(steps)} steps:")
     for i, step in enumerate(steps, 1):
         print(f"  Step {i}: {step.col} = {step.observed_value}")
-        print(
-            f"    Entropy: {step.entropy_before:.2f} -> {step.entropy_after:.2f}"
-        )
+        print(f"    Entropy: {step.entropy_before:.2f} -> {step.entropy_after:.2f}")
 
     print("\nFinal state:")
     print(f"  Remaining candidates: {len(session.state.candidate_rows)}")
