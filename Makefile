@@ -16,6 +16,7 @@ test-cov: ## Run tests with coverage
 
 lint: ## Run linting checks
 	uv run ruff check .
+	uv run deptry .
 
 format: ## Format code
 	uv run ruff format .
@@ -54,6 +55,7 @@ ci-docker: ## Run CI in Docker (standard Python image)
 		"pip install uv && \
 		uv sync --extra dev && \
 		uv run ruff check . && \
+		uv run deptry . && \
 		uv run ruff format --check . && \
 		uv run pytest tests/ -v"
 

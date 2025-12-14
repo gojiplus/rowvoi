@@ -8,6 +8,9 @@ The rowvoi package provides tools for row disambiguation in tabular data:
 - Comprehensive evaluation tools
 """
 
+import logging
+from importlib import metadata
+
 # Core types and data structures
 from .core import CandidateState, FeatureSuggestion
 
@@ -46,7 +49,11 @@ from .prob_keys import find_key_probabilistic, plan_key_path_probabilistic
 from .session import DisambiguationSession, StopRules
 from .types import ColName, RowIndex
 
-__version__ = "0.2.0"
+try:
+    __version__ = metadata.version("rowvoi")
+except metadata.PackageNotFoundError:
+    # Fallback for development installs
+    __version__ = "0.2.0"
 
 __all__ = [
     # Core types
@@ -83,4 +90,31 @@ __all__ = [
     "KeyEvalResult",
     "PolicyEvalStats",
     "AcquisitionResult",
+    # Logging
+    "get_logger",
 ]
+
+
+# Configure package-wide logging
+def get_logger(name: str | None = None) -> logging.Logger:
+    """Get a logger for the rowvoi package.
+
+    Parameters
+    ----------
+    name : str | None, optional
+        Logger name. If None, uses the package name.
+
+    Returns
+    -------
+    logging.Logger
+        Configured logger instance.
+    """
+    if name is None:
+        name = __name__.split(".")[0]
+    return logging.getLogger(name)
+
+
+# Set up default logging configuration
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)

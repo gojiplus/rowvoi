@@ -196,7 +196,7 @@ class RowVoiModel:
 
         Returns
         -------
-        Dict[object, float]
+        dict[object, float]
             A probability mass function over ``candidate_values``.
         """
         if self.noise <= 0.0:
@@ -352,7 +352,7 @@ class RowVoiModel:
         objective : str, optional
             Objective used for ranking.  One of ``'mi'`` or
             ``'mi_over_cost'``.  Default is ``'mi'``.
-        feature_costs : Dict[ColName, float], optional
+        feature_costs : dict[ColName, float], optional
             Mapping of feature costs.  Required if objective is
             ``'mi_over_cost'``.  Costs must be positive.
 
@@ -511,12 +511,12 @@ class RowVoiModel:
         objective : str, optional
             Objective passed to :meth:`suggest_next_feature` (either
             ``'mi'`` or ``'mi_over_cost'``).  Default is ``'mi'``.
-        feature_costs : Dict[ColName, float], optional
+        feature_costs : dict[ColName, float], optional
             Feature cost mapping used if ``objective='mi_over_cost'``.
 
         Returns
         -------
-        List[FeatureSuggestion]
+        list[FeatureSuggestion]
             A list of suggestions (one per query) containing the
             column chosen at each step and the associated VOI metrics.
             The length of the list equals the number of queries made.

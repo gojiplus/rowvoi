@@ -49,10 +49,14 @@ from rowvoi import (
     RowVoiModel,
     StopRules,
     evaluate_policies,
+    get_logger,
     sample_candidate_sets,
 )
 
 warnings.filterwarnings("ignore")
+
+# Set up logging
+logger = get_logger(__name__)
 
 # Check if we can import sklearn for datasets
 try:
@@ -62,7 +66,7 @@ try:
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    print("⚠️  scikit-learn not available. Using synthetic data instead.")
+    logger.warning("⚠️  scikit-learn not available. Using synthetic data instead.")
 
 
 def load_sample_datasets() -> dict[str, pd.DataFrame]:
@@ -157,8 +161,8 @@ def create_feature_costs(df: pd.DataFrame) -> dict[str, float]:
 
 def demonstrate_interactive_session(df: pd.DataFrame, dataset_name: str):
     """Demonstrate an interactive disambiguation session."""
-    print(f"\n🎯 Interactive Session Demo: {dataset_name}")
-    print(f"   Dataset shape: {df.shape}")
+    logger.info(f"\n🎯 Interactive Session Demo: {dataset_name}")
+    logger.info(f"   Dataset shape: {df.shape}")
 
     # Sample a challenging subset
     np.random.seed(42)
@@ -166,7 +170,7 @@ def demonstrate_interactive_session(df: pd.DataFrame, dataset_name: str):
         np.random.choice(len(df), size=min(8, len(df)), replace=False)
     )
 
-    print(f"   Candidate rows: {candidate_rows}")
+    logger.info(f"   Candidate rows: {candidate_rows}")
 
     # Create feature costs
     costs = create_feature_costs(df)
@@ -184,9 +188,9 @@ def demonstrate_interactive_session(df: pd.DataFrame, dataset_name: str):
         model.fit(df)
         policies["ModelMI"] = MIPolicy(model=model, feature_costs=costs)
     except Exception as e:
-        print(f"   ⚠️  Could not train model: {str(e)[:50]}")
+        logger.warning(f"   ⚠️  Could not train model: {str(e)[:50]}")
 
-    print(f"   Comparing {len(policies)} policies...")
+    logger.info(f"   Comparing {len(policies)} policies...")
 
     # Run sessions for each policy
     sessions_results = {}
@@ -217,15 +221,15 @@ def demonstrate_interactive_session(df: pd.DataFrame, dataset_name: str):
                 "columns_used": [step.col for step in steps],
             }
 
-            print(f"   📊 {policy_name}:")
-            print(
+            logger.info(f"   📊 {policy_name}:")
+            logger.info(
                 f"      Steps: {len(steps)}, Cost: {session.cumulative_cost:.1f}, "
                 f"Final entropy: {session.state.entropy:.2f}"
             )
-            print(f"      Columns: {[step.col for step in steps]}")
+            logger.info(f"      Columns: {[step.col for step in steps]}")
 
         except Exception as e:
-            print(f"   ❌ {policy_name}: Failed - {str(e)[:50]}")
+            logger.error(f"   ❌ {policy_name}: Failed - {str(e)[:50]}")
             sessions_results[policy_name] = {"error": str(e)}
 
     return sessions_results
@@ -233,14 +237,14 @@ def demonstrate_interactive_session(df: pd.DataFrame, dataset_name: str):
 
 def compare_policies_systematic(df: pd.DataFrame, dataset_name: str):
     """Systematic comparison of policies across multiple scenarios."""
-    print(f"\n📈 Systematic Policy Comparison: {dataset_name}")
+    logger.info(f"\n📈 Systematic Policy Comparison: {dataset_name}")
 
     # Generate multiple candidate sets
     candidate_sets = sample_candidate_sets(
         df, subset_size=min(6, len(df) // 2), n_samples=10, random_state=42
     )
 
-    print(f"   Testing on {len(candidate_sets)} candidate sets...")
+    logger.info(f"   Testing on {len(candidate_sets)} candidate sets...")
 
     # Create costs
     costs = create_feature_costs(df)
@@ -260,7 +264,7 @@ def compare_policies_systematic(df: pd.DataFrame, dataset_name: str):
             model=model, objective="mi_over_cost", feature_costs=costs
         )
     except Exception as e:
-        print(f"   ⚠️  Could not train model for comparison: {str(e)[:50]}")
+        logger.warning(f"   ⚠️  Could not train model for comparison: {str(e)[:50]}")
 
     # Evaluate policies
     try:
@@ -273,27 +277,29 @@ def compare_policies_systematic(df: pd.DataFrame, dataset_name: str):
             n_repeats=2,
         )
 
-        print("   Results Summary:")
+        logger.info("   Results Summary:")
         for stat in stats:
-            print(f"   📊 {stat.name}:")
-            print(f"      Avg steps: {stat.mean_steps:.1f} ± {stat.std_steps:.1f}")
-            print(f"      Avg cost: {stat.mean_cost:.1f} ± {stat.std_cost:.1f}")
-            print(f"      Success rate: {stat.success_rate:.1%}")
-            print(f"      Final entropy: {stat.mean_final_entropy:.2f}")
+            logger.info(f"   📊 {stat.name}:")
+            logger.info(
+                f"      Avg steps: {stat.mean_steps:.1f} ± {stat.std_steps:.1f}"
+            )
+            logger.info(f"      Avg cost: {stat.mean_cost:.1f} ± {stat.std_cost:.1f}")
+            logger.info(f"      Success rate: {stat.success_rate:.1%}")
+            logger.info(f"      Final entropy: {stat.mean_final_entropy:.2f}")
 
         return stats
 
     except Exception as e:
-        print(f"   ❌ Evaluation failed: {str(e)}")
+        logger.error(f"   ❌ Evaluation failed: {str(e)}")
         return []
 
 
 def test_model_robustness(df: pd.DataFrame, dataset_name: str):
     """Test robustness of model-based policies to noise and distribution shift."""
-    print(f"\n🔬 Model Robustness Testing: {dataset_name}")
+    logger.info(f"\n🔬 Model Robustness Testing: {dataset_name}")
 
     if len(df) < 20:
-        print("   ⚠️  Dataset too small for robustness testing")
+        logger.warning("   ⚠️  Dataset too small for robustness testing")
         return
 
     # Split data for training and testing
@@ -306,7 +312,7 @@ def test_model_robustness(df: pd.DataFrame, dataset_name: str):
             train_df = df.iloc[:n_train]
             test_df = df.iloc[n_train:]
 
-        print(f"   Train: {len(train_df)}, Test: {len(test_df)}")
+        logger.info(f"   Train: {len(train_df)}, Test: {len(test_df)}")
 
         # Train model on training data
         model = RowVoiModel(noise=0.0, normalize_cols=True)
@@ -315,7 +321,7 @@ def test_model_robustness(df: pd.DataFrame, dataset_name: str):
         # Test different noise levels on test data
         noise_levels = [0.0, 0.1, 0.2, 0.3]
 
-        print("   Testing noise robustness:")
+        logger.info("   Testing noise robustness:")
 
         for noise in noise_levels:
             # Create noisy model
@@ -345,21 +351,21 @@ def test_model_robustness(df: pd.DataFrame, dataset_name: str):
 
                     if stats:
                         stat = stats[0]
-                        print(
+                        logger.info(
                             f"     Noise {noise:.1f}: {stat.mean_steps:.1f} steps, "
                             f"success rate {stat.success_rate:.1%}"
                         )
 
                 except Exception:
-                    print(f"     Noise {noise:.1f}: Failed")
+                    logger.info(f"     Noise {noise:.1f}: Failed")
 
     except Exception as e:
-        print(f"   ❌ Robustness test failed: {str(e)[:50]}")
+        logger.error(f"   ❌ Robustness test failed: {str(e)[:50]}")
 
 
 def analyze_feature_importance(df: pd.DataFrame, dataset_name: str):
     """Analyze which features the model considers most valuable."""
-    print(f"\n🔍 Feature Importance Analysis: {dataset_name}")
+    logger.info(f"\n🔍 Feature Importance Analysis: {dataset_name}")
 
     try:
         # Train model
@@ -371,7 +377,7 @@ def analyze_feature_importance(df: pd.DataFrame, dataset_name: str):
         candidate_rows = list(range(0, n_candidates))
         state = CandidateState.uniform(candidate_rows)
 
-        print(f"   Feature rankings for {n_candidates} candidates:")
+        logger.info(f"   Feature rankings for {n_candidates} candidates:")
 
         # Get suggestions for each feature individually
         feature_scores = {}
@@ -389,30 +395,30 @@ def analyze_feature_importance(df: pd.DataFrame, dataset_name: str):
         )
 
         for i, (feature, score) in enumerate(sorted_features[:8]):
-            print(f"     {i + 1}. {feature}: {score:.3f} bits")
+            logger.info(f"     {i + 1}. {feature}: {score:.3f} bits")
 
         return sorted_features
 
     except Exception as e:
-        print(f"   ❌ Feature importance analysis failed: {str(e)[:50]}")
+        logger.error(f"   ❌ Feature importance analysis failed: {str(e)[:50]}")
         return []
 
 
 def main():
     """Run comprehensive predictive selection demonstration."""
-    print("🔮 ROWVOI PREDICTIVE SELECTION DEMONSTRATION")
-    print("=" * 55)
-    print("\n🔍 Loading datasets...")
+    logger.info("🔮 ROWVOI PREDICTIVE SELECTION DEMONSTRATION")
+    logger.info("=" * 55)
+    logger.info("\n🔍 Loading datasets...")
 
     datasets = load_sample_datasets()
-    print(f"   Loaded {len(datasets)} datasets: {list(datasets.keys())}")
+    logger.info(f"   Loaded {len(datasets)} datasets: {list(datasets.keys())}")
 
     all_results = {}
 
     for name, df_raw in datasets.items():
-        print(f"\n{'=' * 60}")
-        print(f"🧪 TESTING DATASET: {name}")
-        print("=" * 60)
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"🧪 TESTING DATASET: {name}")
+        logger.info("=" * 60)
 
         # Discretize for better model performance
         df = discretize_dataset(df_raw)
@@ -431,16 +437,16 @@ def main():
 
         all_results[name] = dataset_results
 
-    print(f"\n{'=' * 60}")
-    print("✅ DEMONSTRATION COMPLETE")
-    print("=" * 60)
-    print("\n💡 KEY INSIGHTS:")
-    print("   • Model-based policies adapt to observed values more effectively")
-    print("   • Greedy coverage works well when no historical data available")
-    print("   • Feature costs significantly impact selection strategies")
-    print("   • Noise tolerance important for real-world deployment")
-    print("   • Interactive sessions enable cost-constrained disambiguation")
-    print(
+    logger.info(f"\n{'=' * 60}")
+    logger.info("✅ DEMONSTRATION COMPLETE")
+    logger.info("=" * 60)
+    logger.info("\n💡 KEY INSIGHTS:")
+    logger.info("   • Model-based policies adapt to observed values more effectively")
+    logger.info("   • Greedy coverage works well when no historical data available")
+    logger.info("   • Feature costs significantly impact selection strategies")
+    logger.info("   • Noise tolerance important for real-world deployment")
+    logger.info("   • Interactive sessions enable cost-constrained disambiguation")
+    logger.info(
         "\n📖 For deterministic optimization with known data, "
         "see known_data_setcover_demo.py"
     )
