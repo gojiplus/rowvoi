@@ -29,15 +29,12 @@ from rowvoi import (
     find_key,
     # Probabilistic methods
     find_key_probabilistic,
-    get_logger,
     plan_key_path,
     plan_key_path_probabilistic,
     # Evaluation
     sample_candidate_sets,
 )
 
-# Set up logging
-logger = get_logger(__name__)
 
 
 def create_sample_data():
@@ -67,15 +64,15 @@ def create_sample_data():
 
 def demo_deterministic_keys():
     """Demonstrate deterministic key finding."""
-    logger.info("\n" + "=" * 60)
-    logger.info("1. DETERMINISTIC KEY FINDING")
-    logger.info("=" * 60)
+    print("\n" + "=" * 60)
+    print("1. DETERMINISTIC KEY FINDING")
+    print("=" * 60)
 
     df = create_sample_data()
     candidate_rows = [0, 5, 10, 15, 20]
 
-    logger.info(f"\nFinding minimal key for rows: {candidate_rows}")
-    logger.info(f"Data shape: {df.shape}")
+    print(f"\nFinding minimal key for rows: {candidate_rows}")
+    print(f"Data shape: {df.shape}")
 
     # Try different algorithms
     algorithms = ["greedy", "exact", "sa", "ga"]
@@ -85,9 +82,9 @@ def demo_deterministic_keys():
         try:
             key = find_key(df, candidate_rows, strategy=algo, time_limit=1.0)
             results[algo] = key
-            logger.info(f"\n{algo.upper()} algorithm: {key} (size={len(key)})")
+            print(f"\n{algo.upper()} algorithm: {key} (size={len(key)})")
         except Exception as e:
-            logger.error(f"\n{algo.upper()} algorithm: Failed - {e}")
+            print(f"\n{algo.upper()} algorithm: Failed - {e}")
 
     # With costs
     costs = {
@@ -101,18 +98,18 @@ def demo_deterministic_keys():
         "satisfaction": 1.0,
     }
 
-    logger.info("\n\nWith column costs:")
+    print("\n\nWith column costs:")
     key_with_costs = find_key(df, candidate_rows, costs=costs)
     total_cost = sum(costs.get(c, 1.0) for c in key_with_costs)
-    logger.info(f"Minimal cost key: {key_with_costs}")
-    logger.info(f"Total cost: {total_cost}")
+    print(f"Minimal cost key: {key_with_costs}")
+    print(f"Total cost: {total_cost}")
 
 
 def demo_path_planning():
     """Demonstrate path planning."""
-    logger.info("\n" + "=" * 60)
-    logger.info("2. PATH PLANNING")
-    logger.info("=" * 60)
+    print("\n" + "=" * 60)
+    print("2. PATH PLANNING")
+    print("=" * 60)
 
     df = create_sample_data()
     candidate_rows = [0, 5, 10, 15, 20, 25]
@@ -121,16 +118,16 @@ def demo_path_planning():
     path_coverage = plan_key_path(df, candidate_rows, objective="pair_coverage")
     path_entropy = plan_key_path(df, candidate_rows, objective="entropy")
 
-    logger.info("\nPath with pair coverage objective:")
+    print("\nPath with pair coverage objective:")
     for step in path_coverage.steps[:3]:
-        logger.info(
+        print(
             f"  {step.col}: covers {step.newly_covered_pairs} new pairs "
             f"({step.coverage:.1%} total)"
         )
 
-    logger.info("\nPath with entropy objective:")
+    print("\nPath with entropy objective:")
     for step in path_entropy.steps[:3]:
-        logger.info(
+        print(
             f"  {step.col}: covers {step.newly_covered_pairs} new pairs "
             f"({step.coverage:.1%} total)"
         )
@@ -149,18 +146,18 @@ def demo_path_planning():
 
     path_with_costs = plan_key_path(df, candidate_rows, costs=costs)
     budget_5_cols = path_with_costs.prefix_for_budget(5.0)
-    logger.info(f"\nColumns within budget of 5: {budget_5_cols}")
+    print(f"\nColumns within budget of 5: {budget_5_cols}")
 
     # Find prefix for epsilon coverage
     epsilon_cols = path_with_costs.prefix_for_epsilon_pairs(0.1)
-    logger.info(f"Columns for 90% coverage: {epsilon_cols}")
+    print(f"Columns for 90% coverage: {epsilon_cols}")
 
 
 def demo_policies():
     """Demonstrate different policies."""
-    logger.info("\n" + "=" * 60)
-    logger.info("3. POLICY-BASED COLUMN SELECTION")
-    logger.info("=" * 60)
+    print("\n" + "=" * 60)
+    print("3. POLICY-BASED COLUMN SELECTION")
+    print("=" * 60)
 
     df = create_sample_data()
     candidate_rows = [0, 10, 20, 30, 40]
@@ -174,17 +171,17 @@ def demo_policies():
         "random": RandomPolicy(seed=42),
     }
 
-    logger.info("\nPolicy suggestions for next column:")
+    print("\nPolicy suggestions for next column:")
     for name, policy in policies.items():
         suggestion = policy.suggest(df, state)
-        logger.info(f"  {name}: {suggestion.col} (score={suggestion.score:.3f})")
+        print(f"  {name}: {suggestion.col} (score={suggestion.score:.3f})")
 
 
 def demo_interactive_session():
     """Demonstrate interactive disambiguation session."""
-    logger.info("\n" + "=" * 60)
-    logger.info("4. INTERACTIVE DISAMBIGUATION SESSION")
-    logger.info("=" * 60)
+    print("\n" + "=" * 60)
+    print("4. INTERACTIVE DISAMBIGUATION SESSION")
+    print("=" * 60)
 
     df = create_sample_data()
     candidate_rows = [0, 10, 20, 30, 40]
@@ -193,8 +190,8 @@ def demo_interactive_session():
     policy = GreedyCoveragePolicy(objective="entropy")
     session = DisambiguationSession(df, candidate_rows, policy=policy)
 
-    logger.info(f"\nStarting session with {len(candidate_rows)} candidates")
-    logger.info(f"Initial entropy: {session.state.entropy:.2f} bits")
+    print(f"\nStarting session with {len(candidate_rows)} candidates")
+    print(f"Initial entropy: {session.state.entropy:.2f} bits")
 
     # Run with different stop rules
     stop_rules = StopRules(max_steps=3, epsilon_posterior=0.1, target_unique=True)
@@ -203,24 +200,24 @@ def demo_interactive_session():
     true_row = candidate_rows[0]
     steps = session.run(stop_rules, true_row=true_row)
 
-    logger.info(f"\nSession completed in {len(steps)} steps:")
+    print(f"\nSession completed in {len(steps)} steps:")
     for i, step in enumerate(steps, 1):
-        logger.info(f"  Step {i}: {step.col} = {step.observed_value}")
-        logger.info(
+        print(f"  Step {i}: {step.col} = {step.observed_value}")
+        print(
             f"    Entropy: {step.entropy_before:.2f} -> {step.entropy_after:.2f}"
         )
 
-    logger.info("\nFinal state:")
-    logger.info(f"  Remaining candidates: {len(session.state.candidate_rows)}")
-    logger.info(f"  Final entropy: {session.state.entropy:.2f}")
-    logger.info(f"  Is unique: {session.state.is_unique}")
+    print("\nFinal state:")
+    print(f"  Remaining candidates: {len(session.state.candidate_rows)}")
+    print(f"  Final entropy: {session.state.entropy:.2f}")
+    print(f"  Is unique: {session.state.is_unique}")
 
 
 def demo_probabilistic_methods():
     """Demonstrate probabilistic methods with model."""
-    logger.info("\n" + "=" * 60)
-    logger.info("5. PROBABILISTIC METHODS")
-    logger.info("=" * 60)
+    print("\n" + "=" * 60)
+    print("5. PROBABILISTIC METHODS")
+    print("=" * 60)
 
     df = create_sample_data()
 
@@ -232,20 +229,20 @@ def demo_probabilistic_methods():
 
     # Find probabilistic key
     prob_key = find_key_probabilistic(df, candidate_rows, model, epsilon_posterior=0.05)
-    logger.info(f"\nProbabilistic key (95% confidence): {prob_key}")
+    print(f"\nProbabilistic key (95% confidence): {prob_key}")
 
     # Plan probabilistic path
     prob_path = plan_key_path_probabilistic(
         df, candidate_rows, model, objective="mi_over_cost"
     )
-    logger.info(f"\nProbabilistic path: {prob_path.columns()[:3]}...")
+    print(f"\nProbabilistic path: {prob_path.columns()[:3]}...")
 
 
 def demo_evaluation():
     """Demonstrate evaluation tools."""
-    logger.info("\n" + "=" * 60)
-    logger.info("6. EVALUATION TOOLS")
-    logger.info("=" * 60)
+    print("\n" + "=" * 60)
+    print("6. EVALUATION TOOLS")
+    print("=" * 60)
 
     df = create_sample_data()
 
@@ -253,7 +250,7 @@ def demo_evaluation():
     candidate_sets = sample_candidate_sets(
         df, subset_size=5, n_samples=10, random_state=42
     )
-    logger.info(f"\nGenerated {len(candidate_sets)} candidate sets")
+    print(f"\nGenerated {len(candidate_sets)} candidate sets")
 
     # Define methods to evaluate
     methods = {
@@ -268,9 +265,9 @@ def demo_evaluation():
         methods,
     )
 
-    logger.info("\nKey evaluation results:")
+    print("\nKey evaluation results:")
     for result in key_results:
-        logger.info(
+        print(
             f"  {result.method}: size={len(result.key)}, "
             f"coverage={result.pair_coverage:.1%}, "
             f"time={result.runtime_sec:.3f}s"
@@ -288,18 +285,18 @@ def demo_evaluation():
         df, candidate_sets[:5], policies, stop=StopRules(target_unique=True)
     )
 
-    logger.info("\nPolicy evaluation results:")
+    print("\nPolicy evaluation results:")
     for stat in policy_stats:
-        logger.info(f"  {stat.name}:")
-        logger.info(f"    Mean steps: {stat.mean_steps:.1f} ± {stat.std_steps:.1f}")
-        logger.info(f"    Success rate: {stat.success_rate:.1%}")
+        print(f"  {stat.name}:")
+        print(f"    Mean steps: {stat.mean_steps:.1f} ± {stat.std_steps:.1f}")
+        print(f"    Success rate: {stat.success_rate:.1%}")
 
 
 def main():
     """Run all demonstrations."""
-    logger.info("\n" + "#" * 60)
-    logger.info("# ROWVOI NEW API DEMONSTRATION")
-    logger.info("#" * 60)
+    print("\n" + "#" * 60)
+    print("# ROWVOI NEW API DEMONSTRATION")
+    print("#" * 60)
 
     demo_deterministic_keys()
     demo_path_planning()
@@ -308,9 +305,9 @@ def main():
     demo_probabilistic_methods()
     demo_evaluation()
 
-    logger.info("\n" + "#" * 60)
-    logger.info("# DEMONSTRATION COMPLETE")
-    logger.info("#" * 60)
+    print("\n" + "#" * 60)
+    print("# DEMONSTRATION COMPLETE")
+    print("#" * 60)
 
 
 if __name__ == "__main__":

@@ -41,12 +41,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from rowvoi import KeyProblem, find_key, get_logger, plan_key_path
+from rowvoi import KeyProblem, find_key, plan_key_path
 
 warnings.filterwarnings("ignore")
 
-# Set up logging
-logger = get_logger(__name__)
 
 # Check if we can import sklearn for datasets
 try:
@@ -55,7 +53,7 @@ try:
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    logger.warning("⚠️  scikit-learn not available. Using synthetic data instead.")
+    print("⚠️  scikit-learn not available. Using synthetic data instead.")
 
 
 def load_sample_datasets() -> dict[str, pd.DataFrame]:
@@ -151,10 +149,10 @@ def benchmark_algorithms(
     problem = KeyProblem(df, rows, costs=costs)
     total_pairs = len(rows) * (len(rows) - 1) // 2
 
-    logger.info(
+    print(
         f"\n  🎯 Benchmarking {len(algorithms)} algorithms on {len(rows)} rows..."
     )
-    logger.info(f"     Total pairs to distinguish: {total_pairs}")
+    print(f"     Total pairs to distinguish: {total_pairs}")
 
     for algo in algorithms:
         try:
@@ -184,18 +182,18 @@ def benchmark_algorithms(
 
             status = "✅" if is_valid else "❌"
             if status == "✅":
-                logger.info(
+                print(
                     f"     {status} {algo.upper()}: {len(key)} cols, "
                     f"cost={total_cost:.1f}, {runtime:.3f}s"
                 )
             else:
-                logger.error(
+                print(
                     f"     {status} {algo.upper()}: {len(key)} cols, "
                     f"cost={total_cost:.1f}, {runtime:.3f}s"
                 )
 
         except Exception as e:
-            logger.error(f"     ❌ {algo.upper()}: Failed ({str(e)[:50]})")
+            print(f"     ❌ {algo.upper()}: Failed ({str(e)[:50]})")
             results[algo] = {"error": str(e)}
 
     return results
@@ -203,7 +201,7 @@ def benchmark_algorithms(
 
 def demonstrate_path_planning(df: pd.DataFrame, rows: list[int], dataset_name: str):
     """Demonstrate path planning functionality."""
-    logger.info(f"\n  🛤️  Path Planning for {dataset_name}")
+    print(f"\n  🛤️  Path Planning for {dataset_name}")
 
     # Create some example costs
     costs = {col: np.random.uniform(0.5, 3.0) for col in df.columns}
@@ -212,16 +210,16 @@ def demonstrate_path_planning(df: pd.DataFrame, rows: list[int], dataset_name: s
     path_coverage = plan_key_path(df, rows, costs=costs, objective="pair_coverage")
     path_entropy = plan_key_path(df, rows, costs=costs, objective="entropy")
 
-    logger.info("     Coverage-optimized path (first 3 steps):")
+    print("     Coverage-optimized path (first 3 steps):")
     for i, step in enumerate(path_coverage.steps[:3]):
-        logger.info(
+        print(
             f"       {i + 1}. {step.col}: +{step.newly_covered_pairs} pairs "
             f"({step.coverage:.0%} total, cost={step.cumulative_cost:.1f})"
         )
 
-    logger.info("     Entropy-optimized path (first 3 steps):")
+    print("     Entropy-optimized path (first 3 steps):")
     for i, step in enumerate(path_entropy.steps[:3]):
-        logger.info(
+        print(
             f"       {i + 1}. {step.col}: +{step.newly_covered_pairs} pairs "
             f"({step.coverage:.0%} total, cost={step.cumulative_cost:.1f})"
         )
@@ -230,19 +228,19 @@ def demonstrate_path_planning(df: pd.DataFrame, rows: list[int], dataset_name: s
     budget_cols = path_coverage.prefix_for_budget(5.0)
     epsilon_cols = path_coverage.prefix_for_epsilon_pairs(0.1)
 
-    logger.info(f"     Within budget of 5.0: {budget_cols}")
-    logger.info(f"     For 90% coverage: {epsilon_cols}")
+    print(f"     Within budget of 5.0: {budget_cols}")
+    print(f"     For 90% coverage: {epsilon_cols}")
 
 
 def analyze_dataset_properties(df: pd.DataFrame, dataset_name: str):
     """Analyze properties of the dataset that affect set cover performance."""
-    logger.info(f"\n📊 Dataset Analysis: {dataset_name}")
-    logger.info(f"   Shape: {df.shape[0]} rows × {df.shape[1]} columns")
-    logger.info(f"   Data types: {df.dtypes.value_counts().to_dict()}")
+    print(f"\n📊 Dataset Analysis: {dataset_name}")
+    print(f"   Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+    print(f"   Data types: {df.dtypes.value_counts().to_dict()}")
 
     # Column cardinality analysis
     cardinalities = [df[col].nunique() for col in df.columns]
-    logger.info(
+    print(
         f"   Column cardinalities: min={min(cardinalities)}, "
         f"max={max(cardinalities)}, mean={np.mean(cardinalities):.1f}"
     )
@@ -252,30 +250,30 @@ def analyze_dataset_properties(df: pd.DataFrame, dataset_name: str):
     high_card_cols = [col for col in df.columns if df[col].nunique() >= len(df) * 0.8]
 
     if low_card_cols:
-        logger.warning(
+        print(
             f"   ⚠️  Low-cardinality columns (≤2 values): {len(low_card_cols)}"
         )
     if high_card_cols:
-        logger.warning(
+        print(
             f"   ⚠️  High-cardinality columns (≥80% unique): {len(high_card_cols)}"
         )
 
 
 def main():
     """Run comprehensive set cover demonstration."""
-    logger.info("🎯 ROWVOI SET COVER DEMONSTRATION")
-    logger.info("=" * 50)
-    logger.info("\n🔍 Loading datasets...")
+    print("🎯 ROWVOI SET COVER DEMONSTRATION")
+    print("=" * 50)
+    print("\n🔍 Loading datasets...")
 
     datasets = load_sample_datasets()
-    logger.info(f"   Loaded {len(datasets)} datasets: {list(datasets.keys())}")
+    print(f"   Loaded {len(datasets)} datasets: {list(datasets.keys())}")
 
     all_results = {}
 
     for name, df_raw in datasets.items():
-        logger.info(f"\n{'=' * 60}")
-        logger.info(f"🧪 TESTING DATASET: {name}")
-        logger.info("=" * 60)
+        print(f"\n{'=' * 60}")
+        print(f"🧪 TESTING DATASET: {name}")
+        print("=" * 60)
 
         # Discretize for better performance
         df = discretize_dataset(df_raw)
@@ -289,7 +287,7 @@ def main():
         dataset_results = []
 
         for i, rows in enumerate(subsets):
-            logger.info(f"\n🔬 Test Case {i + 1}: {len(rows)} rows {rows}")
+            print(f"\n🔬 Test Case {i + 1}: {len(rows)} rows {rows}")
 
             # Create example costs based on column cardinality
             costs = {
@@ -308,7 +306,7 @@ def main():
         all_results[name] = dataset_results
 
         # Summary for this dataset
-        logger.info(f"\n📈 Summary for {name}:")
+        print(f"\n📈 Summary for {name}:")
         successful_results = []
         for test_case in dataset_results:
             for _algo, result in test_case["results"].items():
@@ -318,30 +316,30 @@ def main():
         if successful_results:
             avg_size = np.mean([r["size"] for r in successful_results])
             avg_runtime = np.mean([r["runtime"] for r in successful_results])
-            logger.info(f"   Average key size: {avg_size:.1f} columns")
-            logger.info(f"   Average runtime: {avg_runtime:.3f} seconds")
+            print(f"   Average key size: {avg_size:.1f} columns")
+            print(f"   Average runtime: {avg_runtime:.3f} seconds")
 
             # Best algorithm by size
             best_by_size = min(successful_results, key=lambda x: x["size"])
-            logger.info(
+            print(
                 f"   Best solution: {best_by_size['size']} columns "
                 f"({best_by_size['algorithm']}, cost={best_by_size['cost']:.1f})"
             )
 
-    logger.info(f"\n{'=' * 60}")
-    logger.info("✅ DEMONSTRATION COMPLETE")
-    logger.info("=" * 60)
-    logger.info("\n💡 KEY INSIGHTS:")
-    logger.info("   • Greedy algorithm provides good approximation quickly")
-    logger.info("   • Exact solutions feasible for small problems (<15 columns)")
-    logger.info(
+    print(f"\n{'=' * 60}")
+    print("✅ DEMONSTRATION COMPLETE")
+    print("=" * 60)
+    print("\n💡 KEY INSIGHTS:")
+    print("   • Greedy algorithm provides good approximation quickly")
+    print("   • Exact solutions feasible for small problems (<15 columns)")
+    print(
         "   • Metaheuristics (SA, GA) can improve on greedy for larger problems"
     )
-    logger.info("   • Column costs significantly impact optimal column selection")
-    logger.info(
+    print("   • Column costs significantly impact optimal column selection")
+    print(
         "   • Path planning enables budget-constrained and progressive selection"
     )
-    logger.info(
+    print(
         "\n📖 For interactive selection with unknown data, "
         "see predictive_selection_demo.py"
     )
