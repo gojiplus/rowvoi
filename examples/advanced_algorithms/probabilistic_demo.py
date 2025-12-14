@@ -27,7 +27,6 @@ from rowvoi import (
 )
 from rowvoi.keys import pairwise_coverage
 
-
 print("🎲 PROBABILISTIC & MODEL-BASED ROWVOI DEMO")
 print("=" * 60)
 print("""

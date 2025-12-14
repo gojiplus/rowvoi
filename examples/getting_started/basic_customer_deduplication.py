@@ -36,7 +36,6 @@ from rowvoi import (
 )
 
 
-
 def create_sample_data():
     """Create a sample dataset for demonstration."""
     np.random.seed(42)
