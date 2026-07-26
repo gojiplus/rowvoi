@@ -29,22 +29,14 @@ from .questions import answer_frame, answer_likelihoods, next_question
 class ProbeStep:
     """Record of a single probe in a retrieval session.
 
-    Attributes
-    ----------
-    probe : Probe
-        The probe that was run
-    outcome : Any
-        What it returned (None when likelihoods were supplied directly)
-    cost : float
-        Cost of this probe
-    cumulative_cost : float
-        Total cost through this step
-    entropy_before : float
-        Posterior entropy in bits before the update
-    entropy_after : float
-        Posterior entropy in bits after the update
-    expected_voi : float, optional
-        Information gain predicted for this probe before running it
+    Attributes:
+        probe: The probe that was run
+        outcome: What it returned (None when likelihoods were supplied directly)
+        cost: Cost of this probe
+        cumulative_cost: Total cost through this step
+        entropy_before: Posterior entropy in bits before the update
+        entropy_after: Posterior entropy in bits after the update
+        expected_voi: Information gain predicted for this probe before running it
     """
 
     probe: Probe
@@ -64,25 +56,23 @@ class ProbeStep:
 class RetrievalSession:
     """Run probes against a candidate set until the answer is clear enough.
 
-    Parameters
-    ----------
-    outcomes : DataFrame | Mapping[Probe, Sequence] | Sequence[Sequence]
-        Predicted outcome matrix: `outcomes[i][p]` is what probe `p` would
-        return if candidate `i` were the right one. Same shapes as
-        :func:`rowvoi.rag.questions.answer_frame`
-    runner : ProbeRunner, optional
-        Executes probes in :meth:`run`. Not needed for manual
-        :meth:`next_probe` / :meth:`observe` driving
-    probes : Sequence[Probe], optional
-        Column labels, required when `outcomes` is a nested sequence
-    prior : Sequence[float], optional
-        Per-candidate prior, typically the retrieval scores. Normalized
-        internally; defaults to uniform
-    costs : Mapping[Probe, float], optional
-        Per-probe cost in whatever unit the budget is denominated
-    noise : float, default 0.0
-        Probability a probe returns something other than predicted. Leave at 0
-        only if the outcome predictions are exact; retrieval rarely is
+    Args:
+        outcomes: Predicted outcome matrix: `outcomes[i][p]` is what probe `p` would
+            return if candidate `i` were the right one. Same shapes as
+            :func:`rowvoi.rag.questions.answer_frame`
+        runner: Executes probes in :meth:`run`. Not needed for manual
+            :meth:`next_probe` / :meth:`observe` driving
+        probes: Column labels, required when `outcomes` is a nested sequence
+        prior: Per-candidate prior, typically the retrieval scores. Normalized
+            internally; defaults to uniform
+        costs: Per-probe cost in whatever unit the budget is denominated
+        noise: Probability a probe returns something other than predicted.
+            Leave at 0 only if the outcome predictions are exact; retrieval
+            rarely is
+
+    Raises:
+        ValueError: If `prior` has the wrong length, or is negative or
+            all-zero.
     """
 
     def __init__(
@@ -153,9 +143,7 @@ class RetrievalSession:
 
         Does not run it -- call :meth:`observe` with the result.
 
-        Returns
-        -------
-        FeatureSuggestion
+        Returns:
             `.col` is the probe (None when every probe has been run),
             `.expected_voi` its predicted gain in bits
         """
@@ -171,22 +159,17 @@ class RetrievalSession:
     ) -> ProbeStep:
         """Fold a probe's result into the belief.
 
-        Parameters
-        ----------
-        probe : Probe
-            The probe that was run
-        outcome : Any, optional
-            What it returned, matched against the predicted outcome matrix.
-            Ignored when `likelihoods` is given
-        likelihoods : Sequence[float], optional
-            P(result | candidate), for callers with their own scoring function
-            (a similarity kernel, a reranker's scores). Bypasses the matrix
-        expected_voi : float, optional
-            Predicted gain, recorded for comparison against what was realized
+        Args:
+            probe: The probe that was run
+            outcome: What it returned, matched against the predicted outcome matrix.
+                Ignored when `likelihoods` is given
+            likelihoods: P(result | candidate), for callers with their own
+                scoring function
+                (a similarity kernel, a reranker's scores). Bypasses the matrix
+            expected_voi: Predicted gain, recorded for comparison against
+                what was realized
 
-        Returns
-        -------
-        ProbeStep
+        Returns:
             Record of this step
         """
         entropy_before = self._state.entropy
@@ -225,24 +208,17 @@ class RetrievalSession:
     ) -> list[ProbeStep]:
         """Probe repeatedly until a stop rule fires or probes run out.
 
-        Parameters
-        ----------
-        stop : StopRules
-            Stopping criteria. `epsilon_posterior` is the natural one here --
-            "stop when one candidate holds 95% of the mass". `epsilon_pairs`
-            also works, measured over the predicted outcome matrix
-        runner : ProbeRunner, optional
-            Overrides the runner given to the constructor
+        Args:
+            stop: Stopping criteria. `epsilon_posterior` is the natural one here --
+                "stop when one candidate holds 95% of the mass". `epsilon_pairs`
+                also works, measured over the predicted outcome matrix
+            runner: Overrides the runner given to the constructor
 
-        Returns
-        -------
-        list[ProbeStep]
+        Returns:
             Every step taken this session, including any from earlier calls
 
-        Raises
-        ------
-        ValueError
-            If no runner is available
+        Raises:
+            ValueError: If no runner is available
         """
         active = runner or self.runner
         if active is None:

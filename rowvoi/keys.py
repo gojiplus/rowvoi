@@ -24,24 +24,15 @@ Pair = tuple[int, int]
 class KeyPathStep:
     """A single step in a key path showing incremental progress.
 
-    Attributes
-    ----------
-    col : ColName
-        The column added in this step
-    newly_covered_pairs : int
-        Number of pairs newly covered by this column
-    cumulative_covered_pairs : int
-        Total pairs covered up to and including this step
-    total_pairs : int
-        Total number of pairs that need to be covered
-    marginal_cost : float
-        Cost of adding this specific column
-    cumulative_cost : float
-        Total cost up to and including this step
-    newly_covered_weight : float, optional
-        Weighted coverage gain (for weighted objectives)
-    cumulative_covered_weight : float, optional
-        Total weighted coverage so far
+    Attributes:
+        col: The column added in this step
+        newly_covered_pairs: Number of pairs newly covered by this column
+        cumulative_covered_pairs: Total pairs covered up to and including this step
+        total_pairs: Total number of pairs that need to be covered
+        marginal_cost: Cost of adding this specific column
+        cumulative_cost: Total cost up to and including this step
+        newly_covered_weight: Weighted coverage gain (for weighted objectives)
+        cumulative_covered_weight: Total weighted coverage so far
     """
 
     col: ColName
@@ -65,10 +56,8 @@ class KeyPathStep:
 class KeyPath:
     """Ordered sequence of columns and their contribution to coverage/cost.
 
-    Attributes
-    ----------
-    steps : list[KeyPathStep]
-        Ordered list of steps showing incremental progress
+    Attributes:
+        steps: Ordered list of steps showing incremental progress
     """
 
     steps: list[KeyPathStep]
@@ -80,14 +69,10 @@ class KeyPath:
     def prefix_for_budget(self, budget: float) -> list[ColName]:
         """Return the longest prefix of columns whose cumulative_cost <= budget.
 
-        Parameters
-        ----------
-        budget : float
-            Maximum allowed cumulative cost
+        Args:
+            budget: Maximum allowed cumulative cost
 
-        Returns
-        -------
-        list[ColName]
+        Returns:
             Columns that fit within the budget
         """
         result = []
@@ -101,14 +86,10 @@ class KeyPath:
     def prefix_for_epsilon_pairs(self, epsilon: float) -> list[ColName]:
         """Return the shortest prefix that leaves <= epsilon fraction unresolved.
 
-        Parameters
-        ----------
-        epsilon : float
-            Maximum allowed fraction of unresolved pairs
+        Args:
+            epsilon: Maximum allowed fraction of unresolved pairs
 
-        Returns
-        -------
-        list[ColName]
+        Returns:
             Minimum columns needed to achieve (1-epsilon) coverage
         """
         target_coverage = 1.0 - epsilon
@@ -148,18 +129,12 @@ def pairwise_coverage(
 ) -> float:
     """Fraction of unordered row pairs in `rows` that are distinguished by `cols`.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data frame
-    rows : Sequence[RowIndex]
-        Row indices to consider
-    cols : Sequence[ColName]
-        Columns to use for distinguishing
+    Args:
+        df: The data frame
+        rows: Row indices to consider
+        cols: Columns to use for distinguishing
 
-    Returns
-    -------
-    float
+    Returns:
         Fraction of pairs that differ on at least one column in cols
     """
     rows = list(rows)
@@ -191,16 +166,11 @@ class KeyProblem:
     Under the hood: universe = row pairs; columns cover pairs they separate.
     Solving is delegated to :class:`~rowvoi.setcover.SetCoverProblem`.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    rows : Sequence[RowIndex]
-        Row indices to distinguish
-    columns : Sequence[ColName], optional
-        Columns to consider. If None, use all columns
-    costs : Mapping[ColName, float], optional
-        Cost of each column. If None, unit cost
+    Args:
+        df: The data table
+        rows: Row indices to distinguish
+        columns: Columns to consider. If None, use all columns
+        costs: Cost of each column. If None, unit cost
     """
 
     def __init__(
@@ -248,16 +218,11 @@ class KeyProblem:
     ) -> bool:
         """Check if cols distinguish all but at most epsilon_pairs fraction.
 
-        Parameters
-        ----------
-        cols : Sequence[ColName]
-            Columns to check
-        epsilon_pairs : float, default 0.0
-            Maximum allowed fraction of unresolved pairs
+        Args:
+            cols: Columns to check
+            epsilon_pairs: Maximum allowed fraction of unresolved pairs
 
-        Returns
-        -------
-        bool
+        Returns:
             True if cols form an epsilon-key
         """
         return self._problem.is_cover(cols, epsilon=epsilon_pairs)
@@ -277,25 +242,19 @@ class KeyProblem:
     ) -> list[ColName]:
         """Solve deterministic min-key / set-cover for this row set.
 
-        Parameters
-        ----------
-        strategy : str, default "greedy"
-            Algorithm to use:
-            - "greedy": greedy set cover on row pairs
-            - "exact": brute force enumeration (only for small problems)
-            - "ilp": Integer Linear Programming (requires pulp)
-            - "sa": Simulated Annealing metaheuristic
-            - "ga": Genetic Algorithm metaheuristic
-            - "lp": Linear Programming relaxation with rounding
-            - "hybrid": Combined SA+GA approach
-        epsilon_pairs : float, default 0.0
-            Allow some unresolved pairs to remain
-        time_limit : float, optional
-            Maximum time in seconds
+        Args:
+            strategy: Algorithm to use:
+                - "greedy": greedy set cover on row pairs
+                - "exact": brute force enumeration (only for small problems)
+                - "ilp": Integer Linear Programming (requires pulp)
+                - "sa": Simulated Annealing metaheuristic
+                - "ga": Genetic Algorithm metaheuristic
+                - "lp": Linear Programming relaxation with rounding
+                - "hybrid": Combined SA+GA approach
+            epsilon_pairs: Allow some unresolved pairs to remain
+            time_limit: Maximum time in seconds
 
-        Returns
-        -------
-        list[ColName]
+        Returns:
             Minimal (or near-minimal) set of columns
         """
         return self._problem.solve(
@@ -310,18 +269,13 @@ class KeyProblem:
     ) -> KeyPath:
         """Build a greedy ordering of columns for this row set.
 
-        Parameters
-        ----------
-        objective : str, default "pair_coverage"
-            - "pair_coverage": gain = newly covered pairs
-            - "entropy": gain = reduction in log cluster size
-        weighting : str, default "uniform"
-            - "uniform": all pairs weighted equally
-            - "pair_idf": weight hard-to-separate pairs more
+        Args:
+            objective: - "pair_coverage": gain = newly covered pairs
+                - "entropy": gain = reduction in log cluster size
+            weighting: - "uniform": all pairs weighted equally
+                - "pair_idf": weight hard-to-separate pairs more
 
-        Returns
-        -------
-        KeyPath
+        Returns:
             Ordered sequence with coverage information
         """
         path = self._problem.plan_path(
@@ -345,26 +299,16 @@ def find_key(
 
     Convenience wrapper around KeyProblem.minimal_key().
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    rows : Sequence[RowIndex]
-        Row indices to distinguish
-    columns : Sequence[ColName], optional
-        Columns to consider
-    costs : Mapping[ColName, float], optional
-        Cost of each column
-    strategy : str, default "greedy"
-        Algorithm to use
-    epsilon_pairs : float, default 0.0
-        Allow some unresolved pairs
-    time_limit : float, optional
-        Maximum time in seconds
+    Args:
+        df: The data table
+        rows: Row indices to distinguish
+        columns: Columns to consider
+        costs: Cost of each column
+        strategy: Algorithm to use
+        epsilon_pairs: Allow some unresolved pairs
+        time_limit: Maximum time in seconds
 
-    Returns
-    -------
-    list[ColName]
+    Returns:
         Minimal set of columns
     """
     problem = KeyProblem(df, rows, columns=columns, costs=costs)
@@ -386,24 +330,15 @@ def plan_key_path(
 
     Convenience wrapper around KeyProblem.plan_path().
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    rows : Sequence[RowIndex]
-        Row indices to distinguish
-    columns : Sequence[ColName], optional
-        Columns to consider
-    costs : Mapping[ColName, float], optional
-        Cost of each column
-    objective : str, default "pair_coverage"
-        Objective function for ordering
-    weighting : str, default "uniform"
-        Weighting scheme for pairs
+    Args:
+        df: The data table
+        rows: Row indices to distinguish
+        columns: Columns to consider
+        costs: Cost of each column
+        objective: Objective function for ordering
+        weighting: Weighting scheme for pairs
 
-    Returns
-    -------
-    KeyPath
+    Returns:
         Ordered sequence with coverage information
     """
     problem = KeyProblem(df, rows, columns=columns, costs=costs)

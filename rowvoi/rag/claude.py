@@ -179,18 +179,12 @@ class _ClaudeComponent:
 class ClaudeClaimExtractor(_ClaudeComponent):
     """Decompose a query into independently checkable claims.
 
-    Parameters
-    ----------
-    client : anthropic.Anthropic, optional
-        Reuse a configured client. A default one is constructed if omitted
-    model : str, default "claude-opus-5"
-        Model id
-    max_tokens : int, default 16000
-        Covers thinking plus response
-    effort : str, optional
-        "low" through "max"; leave unset for the model default
-    max_claims : int, default 12
-        Upper bound requested in the prompt
+    Args:
+        client: Reuse a configured client. A default one is constructed if omitted
+        model: Model id
+        max_tokens: Covers thinking plus response
+        effort: "low" through "max"; leave unset for the model default
+        max_claims: Upper bound requested in the prompt
     """
 
     max_claims: int = 12
@@ -305,10 +299,17 @@ class ClaudeAnswerPredictor(_ClaudeComponent):
     ) -> list[list[str]]:
         """Return `answers[i][q]`: the answer if `candidates[i]` were right.
 
-        Raises
-        ------
-        ValueError
-            If the returned matrix is not `len(candidates)` x `len(questions)`
+        Args:
+            candidates: Candidate texts, one per row of the returned matrix.
+            questions: Clarifying questions, one per column.
+
+        Returns:
+            One row per candidate, each holding one answer per question, in
+            the order given.
+
+        Raises:
+            ValueError: If the returned matrix is not the expected
+                len(candidates) x len(questions) shape
         """
         system = (
             "You predict how a user would answer clarifying questions, "

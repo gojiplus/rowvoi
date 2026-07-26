@@ -29,18 +29,12 @@ class Policy(Protocol):
     ) -> FeatureSuggestion:
         """Suggest the next best column to query.
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The data table
-        state : CandidateState
-            Current disambiguation state
-        candidate_cols : Sequence[ColName], optional
-            Columns to consider. If None, consider all columns
+        Args:
+            df: The data table
+            state: Current disambiguation state
+            candidate_cols: Columns to consider. If None, consider all columns
 
-        Returns
-        -------
-        FeatureSuggestion
+        Returns:
             Recommendation for next column to query
         """
         ...
@@ -52,16 +46,12 @@ class GreedyCoveragePolicy:
 
     Can be used for "next best column" in deterministic mode.
 
-    Attributes
-    ----------
-    costs : Mapping[ColName, float], optional
-        Cost of querying each column
-    objective : str, default "pairs"
-        - "pairs": maximize newly covered pairs
-        - "entropy": maximize entropy reduction
-    weighting : str, default "uniform"
-        - "uniform": all pairs weighted equally
-        - "pair_idf": weight hard-to-separate pairs more
+    Attributes:
+        costs: Cost of querying each column
+        objective: - "pairs": maximize newly covered pairs
+            - "entropy": maximize entropy reduction
+        weighting: - "uniform": all pairs weighted equally
+            - "pair_idf": weight hard-to-separate pairs more
     """
 
     costs: Mapping[ColName, float] | None = None
@@ -185,15 +175,11 @@ class GreedyCoveragePolicy:
 class MIPolicy:
     """Policy that uses mutual information from a RowVoiModel.
 
-    Attributes
-    ----------
-    model : RowVoiModel
-        The trained model for computing MI
-    objective : str, default "mi_over_cost"
-        - "mi": raw mutual information
-        - "mi_over_cost": MI divided by feature cost
-    feature_costs : Mapping[ColName, float], optional
-        Cost of querying each feature
+    Attributes:
+        model: The trained model for computing MI
+        objective: - "mi": raw mutual information
+            - "mi_over_cost": MI divided by feature cost
+        feature_costs: Cost of querying each feature
     """
 
     model: "RowVoiModel"
@@ -253,12 +239,9 @@ class CandidateMIPolicy:
     This policy doesn't require a trained model - it computes MI
     directly from the candidate rows.
 
-    Attributes
-    ----------
-    normalize : bool, default False
-        Whether to normalize MI by maximum entropy
-    costs : Mapping[ColName, float], optional
-        Cost of querying each column
+    Attributes:
+        normalize: Whether to normalize MI by maximum entropy
+        costs: Cost of querying each column
     """
 
     normalize: bool = False
@@ -366,10 +349,8 @@ class CandidateMIPolicy:
 class RandomPolicy:
     """Random policy for baseline comparisons.
 
-    Attributes
-    ----------
-    seed : int, optional
-        Random seed for reproducibility
+    Attributes:
+        seed: Random seed for reproducibility
     """
 
     seed: int | None = None

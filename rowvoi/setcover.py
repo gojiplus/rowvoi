@@ -24,24 +24,15 @@ Strategy = Literal["greedy", "exact", "ilp", "sa", "ga", "lp", "hybrid"]
 class CoverStep:
     """A single step in a cover path showing incremental progress.
 
-    Attributes
-    ----------
-    name : SetName
-        The set added in this step
-    newly_covered : int
-        Number of elements newly covered by this set
-    cumulative_covered : int
-        Total elements covered up to and including this step
-    total_elements : int
-        Size of the universe
-    marginal_cost : float
-        Cost of adding this specific set
-    cumulative_cost : float
-        Total cost up to and including this step
-    newly_covered_weight : float, optional
-        Weighted coverage gain (for weighted objectives)
-    cumulative_covered_weight : float, optional
-        Total weighted coverage so far
+    Attributes:
+        name: The set added in this step
+        newly_covered: Number of elements newly covered by this set
+        cumulative_covered: Total elements covered up to and including this step
+        total_elements: Size of the universe
+        marginal_cost: Cost of adding this specific set
+        cumulative_cost: Total cost up to and including this step
+        newly_covered_weight: Weighted coverage gain (for weighted objectives)
+        cumulative_covered_weight: Total weighted coverage so far
     """
 
     name: SetName
@@ -65,10 +56,8 @@ class CoverStep:
 class CoverPath:
     """Ordered sequence of sets and their contribution to coverage/cost.
 
-    Attributes
-    ----------
-    steps : list[CoverStep]
-        Ordered list of steps showing incremental progress
+    Attributes:
+        steps: Ordered list of steps showing incremental progress
     """
 
     steps: list[CoverStep]
@@ -80,14 +69,10 @@ class CoverPath:
     def prefix_for_budget(self, budget: float) -> list[SetName]:
         """Return the longest prefix of sets whose cumulative_cost <= budget.
 
-        Parameters
-        ----------
-        budget : float
-            Maximum allowed cumulative cost
+        Args:
+            budget: Maximum allowed cumulative cost
 
-        Returns
-        -------
-        list[SetName]
+        Returns:
             Sets that fit within the budget
         """
         result = []
@@ -101,14 +86,10 @@ class CoverPath:
     def prefix_for_epsilon(self, epsilon: float) -> list[SetName]:
         """Return the shortest prefix that leaves <= epsilon fraction uncovered.
 
-        Parameters
-        ----------
-        epsilon : float
-            Maximum allowed fraction of uncovered elements
+        Args:
+            epsilon: Maximum allowed fraction of uncovered elements
 
-        Returns
-        -------
-        list[SetName]
+        Returns:
             Minimum sets needed to achieve (1-epsilon) coverage
         """
         target_coverage = 1.0 - epsilon
@@ -125,16 +106,12 @@ class CoverPath:
 class SetCoverProblem:
     """Weighted set cover over an arbitrary universe.
 
-    Parameters
-    ----------
-    sets : Mapping[SetName, Iterable[Element]]
-        Maps each selectable set to the elements it covers
-    universe : Iterable[Element], optional
-        Elements that must be covered. If None, the union of all sets is used.
-        Pass it explicitly when some elements are covered by no set (they then
-        count against coverage rather than being silently ignored).
-    costs : Mapping[SetName, float], optional
-        Cost of selecting each set. Missing entries default to 1.0
+    Args:
+        sets: Maps each selectable set to the elements it covers
+        universe: Elements that must be covered. If None, the union of all sets is used.
+            Pass it explicitly when some elements are covered by no set (they then
+            count against coverage rather than being silently ignored).
+        costs: Cost of selecting each set. Missing entries default to 1.0
     """
 
     def __init__(
@@ -191,26 +168,23 @@ class SetCoverProblem:
     ) -> list[SetName]:
         """Find a minimum-cost selection covering (1-epsilon) of the universe.
 
-        Parameters
-        ----------
-        strategy : str, default "greedy"
-            Algorithm to use:
-            - "greedy": greedy cost/gain ratio (ln m approximation)
-            - "exact": brute force enumeration (only for small problems)
-            - "ilp": Integer Linear Programming (requires pulp)
-            - "sa": Simulated Annealing metaheuristic
-            - "ga": Genetic Algorithm metaheuristic
-            - "lp": Linear Programming relaxation with rounding
-            - "hybrid": Combined SA+GA approach
-        epsilon : float, default 0.0
-            Allow this fraction of the universe to remain uncovered
-        time_limit : float, optional
-            Maximum time in seconds
+        Args:
+            strategy: Algorithm to use:
+                - "greedy": greedy cost/gain ratio (ln m approximation)
+                - "exact": brute force enumeration (only for small problems)
+                - "ilp": Integer Linear Programming (requires pulp)
+                - "sa": Simulated Annealing metaheuristic
+                - "ga": Genetic Algorithm metaheuristic
+                - "lp": Linear Programming relaxation with rounding
+                - "hybrid": Combined SA+GA approach
+            epsilon: Allow this fraction of the universe to remain uncovered
+            time_limit: Maximum time in seconds
 
-        Returns
-        -------
-        list[SetName]
+        Returns:
             Minimal (or near-minimal) selection
+
+        Raises:
+            ValueError: If `strategy` is not one of the supported names.
         """
         if strategy == "greedy":
             return self._greedy(epsilon)
@@ -528,18 +502,13 @@ class SetCoverProblem:
         the order in which to acquire sets — so callers can cut the sequence at
         a budget or a coverage target.
 
-        Parameters
-        ----------
-        objective : str, default "coverage"
-            - "coverage": gain = weighted newly covered elements
-            - "entropy": gain = reduction in log cluster size
-        weighting : str, default "uniform"
-            - "uniform": all elements weighted equally
-            - "idf": elements covered by fewer sets weighted higher
+        Args:
+            objective: - "coverage": gain = weighted newly covered elements
+                - "entropy": gain = reduction in log cluster size
+            weighting: - "uniform": all elements weighted equally
+                - "idf": elements covered by fewer sets weighted higher
 
-        Returns
-        -------
-        CoverPath
+        Returns:
             Ordered sequence with coverage information
         """
         if not self.universe:

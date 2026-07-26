@@ -101,14 +101,10 @@ __all__ = [
 def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger for the rowvoi package.
 
-    Parameters
-    ----------
-    name : str | None, optional
-        Logger name. If None, uses the package name.
+    Args:
+        name: Logger name. If None, uses the package name.
 
-    Returns
-    -------
-    logging.Logger
+    Returns:
         Configured logger instance.
     """
     if name is None:

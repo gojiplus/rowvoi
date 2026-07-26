@@ -35,16 +35,11 @@ class SupportJudge(Protocol):
     ) -> dict[Claim, set[ChunkId]]:
         """Map each claim to the set of chunk ids that support it.
 
-        Parameters
-        ----------
-        chunks : Sequence[tuple[ChunkId, str]]
-            (id, text) pairs for the retrieved chunks
-        claims : Sequence[Claim]
-            Claims to check support for
+        Args:
+            chunks: (id, text) pairs for the retrieved chunks
+            claims: Claims to check support for
 
-        Returns
-        -------
-        dict[Claim, set[ChunkId]]
+        Returns:
             Supporting chunks per claim. A claim with no support maps to an
             empty set rather than being omitted.
         """

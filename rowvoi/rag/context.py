@@ -23,15 +23,11 @@ from .protocols import ChunkId, Claim
 class Chunk:
     """A retrieved chunk.
 
-    Attributes
-    ----------
-    id : ChunkId
-        Stable identifier, used everywhere else in this module
-    text : str
-        The chunk body
-    tokens : int, optional
-        Token count, used as the set-cover cost. When omitted, cost falls back
-        to an explicit `costs` mapping and then to 1.0 (chunk-count minimization)
+    Attributes:
+        id: Stable identifier, used everywhere else in this module
+        text: The chunk body
+        tokens: Token count, used as the set-cover cost. When omitted, cost falls back
+            to an explicit `costs` mapping and then to 1.0 (chunk-count minimization)
     """
 
     id: ChunkId
@@ -43,20 +39,15 @@ class Chunk:
 class ContextSelection:
     """The chunks chosen to support a set of claims.
 
-    Attributes
-    ----------
-    chunks : list[ChunkId]
-        Selected chunk ids
-    covered_claims : set[Claim]
-        Claims supported by the selection
-    missing_claims : set[Claim]
-        Claims left unsupported -- either traded away via `epsilon_claims`, or
-        unsupported by *any* retrieved chunk, which is a retrieval failure
-        rather than a selection one
-    coverage : float
-        Fraction of claims covered
-    total_cost : float
-        Summed cost (tokens, when supplied) of the selection
+    Attributes:
+        chunks: Selected chunk ids
+        covered_claims: Claims supported by the selection
+        missing_claims: Claims left unsupported -- either traded away via
+            `epsilon_claims`, or
+            unsupported by *any* retrieved chunk, which is a retrieval failure
+            rather than a selection one
+        coverage: Fraction of claims covered
+        total_cost: Summed cost (tokens, when supplied) of the selection
     """
 
     chunks: list[ChunkId] = field(default_factory=list)
@@ -163,43 +154,33 @@ def select_context(
 ) -> ContextSelection:
     """Select the cheapest set of chunks that supports the required claims.
 
-    Parameters
-    ----------
-    chunks : Sequence[Chunk] | Sequence[ChunkId]
-        Retrieved chunks. Passing :class:`Chunk` objects lets `tokens` act as
-        the cost; passing bare ids minimizes chunk count unless `costs` is given
-    claims : Sequence[Claim]
-        Claims the answer must support. This is the universe -- a claim absent
-        from `support` counts as uncovered rather than being ignored
-    support : Mapping[Claim, Iterable[ChunkId]] | pd.DataFrame
-        Which chunks support which claims. As a DataFrame: claims on the index,
-        chunk ids as columns, truthy cells meaning support
-    costs : Mapping[ChunkId, float], optional
-        Per-chunk cost, overriding `Chunk.tokens`. Defaults to 1.0
-    epsilon_claims : float, default 0.0
-        Permit this fraction of claims to go unsupported. Trading 5% of claims
-        often halves the context
-    strategy : str, default "greedy"
-        Any strategy accepted by :meth:`rowvoi.setcover.SetCoverProblem.solve`
-    time_limit : float, optional
-        Maximum seconds for the solvers that respect one
+    Args:
+        chunks: Retrieved chunks. Passing :class:`Chunk` objects lets `tokens` act as
+            the cost; passing bare ids minimizes chunk count unless `costs` is given
+        claims: Claims the answer must support. This is the universe -- a claim absent
+            from `support` counts as uncovered rather than being ignored
+        support: Which chunks support which claims. As a DataFrame: claims on the index,
+            chunk ids as columns, truthy cells meaning support
+        costs: Per-chunk cost, overriding `Chunk.tokens`. Defaults to 1.0
+        epsilon_claims: Permit this fraction of claims to go unsupported.
+            Trading 5% of claims
+            often halves the context
+        strategy: Any strategy accepted by :meth:`rowvoi.setcover.SetCoverProblem.solve`
+        time_limit: Maximum seconds for the solvers that respect one
 
-    Returns
-    -------
-    ContextSelection
+    Returns:
         Selected chunks plus coverage accounting
 
-    Examples
-    --------
-    >>> chunks = [Chunk("a", tokens=100), Chunk("b", tokens=100),
-    ...           Chunk("c", tokens=400)]
-    >>> claims = ["price", "release_date"]
-    >>> support = {"price": {"a", "c"}, "release_date": {"b", "c"}}
-    >>> selection = select_context(chunks, claims, support)
-    >>> sorted(selection.chunks)
-    ['a', 'b']
-    >>> selection.total_cost
-    200.0
+    Examples:
+        >>> chunks = [Chunk("a", tokens=100), Chunk("b", tokens=100),
+        ...           Chunk("c", tokens=400)]
+        >>> claims = ["price", "release_date"]
+        >>> support = {"price": {"a", "c"}, "release_date": {"b", "c"}}
+        >>> selection = select_context(chunks, claims, support)
+        >>> sorted(selection.chunks)
+        ['a', 'b']
+        >>> selection.total_cost
+        200.0
     """
     problem = _build_problem(chunks, claims, support, costs)
     selection = problem.solve(strategy, epsilon=epsilon_claims, time_limit=time_limit)
@@ -222,34 +203,25 @@ def plan_context_path(
     :meth:`~rowvoi.setcover.CoverPath.coverage_curve`, so you can fill a
     context window and see exactly what the last token bought.
 
-    Parameters
-    ----------
-    chunks : Sequence[Chunk] | Sequence[ChunkId]
-        Retrieved chunks
-    claims : Sequence[Claim]
-        Claims the answer must support
-    support : Mapping[Claim, Iterable[ChunkId]] | pd.DataFrame
-        Which chunks support which claims
-    costs : Mapping[ChunkId, float], optional
-        Per-chunk cost, overriding `Chunk.tokens`
-    weighting : str, default "uniform"
-        "uniform" weights all claims equally; "idf" upweights claims that few
-        chunks support, so scarce evidence is acquired earlier
+    Args:
+        chunks: Retrieved chunks
+        claims: Claims the answer must support
+        support: Which chunks support which claims
+        costs: Per-chunk cost, overriding `Chunk.tokens`
+        weighting: "uniform" weights all claims equally; "idf" upweights claims that few
+            chunks support, so scarce evidence is acquired earlier
 
-    Returns
-    -------
-    CoverPath
+    Returns:
         Ordered acquisition path with per-step coverage and cost
 
-    Examples
-    --------
-    >>> chunks = [Chunk("a", tokens=100), Chunk("b", tokens=100),
-    ...           Chunk("c", tokens=400)]
-    >>> claims = ["price", "release_date"]
-    >>> support = {"price": {"a", "c"}, "release_date": {"b", "c"}}
-    >>> path = plan_context_path(chunks, claims, support)
-    >>> path.prefix_for_budget(150)
-    ['a']
+    Examples:
+        >>> chunks = [Chunk("a", tokens=100), Chunk("b", tokens=100),
+        ...           Chunk("c", tokens=400)]
+        >>> claims = ["price", "release_date"]
+        >>> support = {"price": {"a", "c"}, "release_date": {"b", "c"}}
+        >>> path = plan_context_path(chunks, claims, support)
+        >>> path.prefix_for_budget(150)
+        ['a']
     """
     problem = _build_problem(chunks, claims, support, costs)
     return problem.plan_path(
@@ -275,26 +247,16 @@ def extract_and_select(
     :class:`~rowvoi.rag.protocols.SupportJudge` (see :mod:`rowvoi.rag.claude`).
     The two LLM calls happen here; the selection itself is deterministic.
 
-    Parameters
-    ----------
-    query : str
-        The user's question
-    chunks : Sequence[Chunk]
-        Retrieved chunks, with text (the judge needs it)
-    extractor : ClaimExtractor
-        Turns the query into claims
-    judge : SupportJudge
-        Decides which chunks support which claims
-    costs : Mapping[ChunkId, float], optional
-        Per-chunk cost, overriding `Chunk.tokens`
-    epsilon_claims : float, default 0.0
-        Permit this fraction of claims to go unsupported
-    strategy : str, default "greedy"
-        Set cover strategy
+    Args:
+        query: The user's question
+        chunks: Retrieved chunks, with text (the judge needs it)
+        extractor: Turns the query into claims
+        judge: Decides which chunks support which claims
+        costs: Per-chunk cost, overriding `Chunk.tokens`
+        epsilon_claims: Permit this fraction of claims to go unsupported
+        strategy: Set cover strategy
 
-    Returns
-    -------
-    ContextSelection
+    Returns:
         Selected chunks plus coverage accounting
     """
     claims = extractor.extract(query)

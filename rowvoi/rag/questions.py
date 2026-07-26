@@ -28,20 +28,19 @@ def answer_frame(
 ) -> pd.DataFrame:
     """Coerce a predicted answer matrix into a candidates x questions frame.
 
-    Parameters
-    ----------
-    answers : DataFrame | Mapping[Question, Sequence] | Sequence[Sequence]
-        Three accepted shapes:
-        - DataFrame: one row per candidate, one column per question
-        - Mapping: question -> per-candidate answers (column-oriented)
-        - Nested sequence: `answers[i][q]` (row-oriented); needs `questions`
-    questions : Sequence[Question], optional
-        Column labels. Required for the nested-sequence form
+    Args:
+        answers: Three accepted shapes:
+            - DataFrame: one row per candidate, one column per question
+            - Mapping: question -> per-candidate answers (column-oriented)
+            - Nested sequence: `answers[i][q]` (row-oriented); needs `questions`
+        questions: Column labels. Required for the nested-sequence form
 
-    Returns
-    -------
-    pd.DataFrame
+    Returns:
         Candidates as positional rows, questions as columns
+
+    Raises:
+        ValueError: If the nested-sequence form is given without `questions`,
+            if rows are ragged, or if the matrix has no questions.
     """
     if isinstance(answers, pd.DataFrame):
         frame = answers.reset_index(drop=True)
@@ -106,23 +105,16 @@ def question_values(
     Returns the whole ranking rather than just the winner -- useful for
     showing a user their options, or for logging why a question was chosen.
 
-    Parameters
-    ----------
-    answers : DataFrame | Mapping | nested sequence
-        Predicted answer matrix; see :func:`answer_frame`
-    questions : Sequence[Question], optional
-        Column labels for the nested-sequence form
-    state : CandidateState, optional
-        Current belief. Defaults to uniform over candidates
-    prior : Sequence[float], optional
-        Per-candidate prior weights (e.g. retrieval scores), used when `state`
-        is not given. Normalized internally
-    normalize : bool, default False
-        Divide by prior entropy, giving a 0-1 fraction-of-uncertainty-resolved
+    Args:
+        answers: Predicted answer matrix; see :func:`answer_frame`
+        questions: Column labels for the nested-sequence form
+        state: Current belief. Defaults to uniform over candidates
+        prior: Per-candidate prior weights (e.g. retrieval scores), used when `state`
+            is not given. Normalized internally
+        normalize: Divide by prior entropy, giving a 0-1 fraction of the
+            uncertainty resolved
 
-    Returns
-    -------
-    dict[Question, float]
+    Returns:
         Mutual information per question, in bits (or fractions if normalized)
     """
     frame = answer_frame(answers, questions=questions)
@@ -144,39 +136,29 @@ def next_question(
 ) -> FeatureSuggestion:
     """Pick the question with the best information gain per unit cost.
 
-    Parameters
-    ----------
-    answers : DataFrame | Mapping | nested sequence
-        Predicted answer matrix; see :func:`answer_frame`
-    questions : Sequence[Question], optional
-        Column labels for the nested-sequence form
-    state : CandidateState, optional
-        Current belief. Defaults to uniform over candidates. Questions already
-        in `state.observed_cols` are excluded
-    prior : Sequence[float], optional
-        Per-candidate prior weights, used when `state` is not given
-    costs : Mapping[Question, float], optional
-        Per-question cost. With users, cost is patience: a yes/no question is
-        cheap, "paste your config" is not. Ranking is by MI/cost
-    normalize : bool, default False
-        Score against normalized MI instead of raw bits
+    Args:
+        answers: Predicted answer matrix; see :func:`answer_frame`
+        questions: Column labels for the nested-sequence form
+        state: Current belief. Defaults to uniform over candidates. Questions already
+            in `state.observed_cols` are excluded
+        prior: Per-candidate prior weights, used when `state` is not given
+        costs: Per-question cost. With users, cost is patience: a yes/no question is
+            cheap, "paste your config" is not. Ranking is by MI/cost
+        normalize: Score against normalized MI instead of raw bits
 
-    Returns
-    -------
-    FeatureSuggestion
+    Returns:
         `.col` is the chosen question, `.expected_voi` its information gain in
         bits, `.score` the cost-adjusted ranking value. `.col` is None when no
         question is left to ask
 
-    Examples
-    --------
-    >>> # q1 splits the four candidates evenly; q2 tells them apart not at all
-    >>> answers = {"q1": ["a", "a", "b", "b"], "q2": ["x", "x", "x", "x"]}
-    >>> suggestion = next_question(answers)
-    >>> suggestion.col
-    'q1'
-    >>> f"{suggestion.expected_voi:.2f}"
-    '1.00'
+    Examples:
+        >>> # q1 splits the four candidates evenly; q2 tells them apart not at all
+        >>> answers = {"q1": ["a", "a", "b", "b"], "q2": ["x", "x", "x", "x"]}
+        >>> suggestion = next_question(answers)
+        >>> suggestion.col
+        'q1'
+        >>> f"{suggestion.expected_voi:.2f}"
+        '1.00'
     """
     frame = answer_frame(answers, questions=questions)
     candidate_state = _as_state(frame, state, prior)
@@ -199,25 +181,21 @@ def answer_likelihoods(
     answer -- a user typo, a shaky prediction -- cannot eliminate the right
     candidate outright.
 
-    Parameters
-    ----------
-    answers : DataFrame | Mapping | nested sequence
-        Predicted answer matrix; see :func:`answer_frame`
-    question : Question
-        Which question was asked
-    value : Any
-        The answer actually received
-    questions : Sequence[Question], optional
-        Column labels for the nested-sequence form
-    noise : float, default 0.0
-        Probability that a candidate produces an answer other than its
-        predicted one, spread evenly over the other observed answers. Must be
-        in [0, 1)
+    Args:
+        answers: Predicted answer matrix; see :func:`answer_frame`
+        question: Which question was asked
+        value: The answer actually received
+        questions: Column labels for the nested-sequence form
+        noise: Probability that a candidate produces an answer other than its
+            predicted one, spread evenly over the other observed answers. Must be
+            in [0, 1)
 
-    Returns
-    -------
-    np.ndarray
+    Returns:
         Likelihood per candidate, in candidate order
+
+    Raises:
+        ValueError: If `noise` is outside [0, 1).
+        KeyError: If `question` is not a column of the answer matrix.
     """
     if not 0.0 <= noise < 1.0:
         raise ValueError(f"noise must be in [0, 1), got {noise}")
@@ -252,32 +230,22 @@ def observe_answer(
     are never dropped and the posterior stays aligned with the answer matrix
     across successive questions.
 
-    Parameters
-    ----------
-    state : CandidateState
-        Belief before the answer
-    answers : DataFrame | Mapping | nested sequence
-        Predicted answer matrix; see :func:`answer_frame`
-    question : Question
-        Which question was asked
-    value : Any
-        The answer actually received
-    questions : Sequence[Question], optional
-        Column labels for the nested-sequence form
-    noise : float, default 0.0
-        Per-candidate probability of an off-prediction answer
+    Args:
+        state: Belief before the answer
+        answers: Predicted answer matrix; see :func:`answer_frame`
+        question: Which question was asked
+        value: The answer actually received
+        questions: Column labels for the nested-sequence form
+        noise: Per-candidate probability of an off-prediction answer
 
-    Returns
-    -------
-    CandidateState
+    Note:
+        Propagates ValueError from :meth:`rowvoi.CandidateState.reweight` when
+        no candidate could have produced `value` (with `noise=0`). That means
+        the candidate set is wrong, not merely narrowed -- re-retrieve rather
+        than continuing to ask.
+
+    Returns:
         Updated belief, with `question` recorded in `observed_cols`
-
-    Raises
-    ------
-    ValueError
-        If no candidate could have produced `value` (with `noise=0`). That
-        means the candidate set is wrong, not merely narrowed -- re-retrieve
-        rather than continuing to ask
     """
     likelihoods = answer_likelihoods(
         answers, question, value, questions=questions, noise=noise

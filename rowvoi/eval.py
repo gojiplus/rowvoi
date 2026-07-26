@@ -36,21 +36,17 @@ def sample_candidate_sets(
 ) -> list[list[RowIndex]]:
     """Randomly sample subsets of rows from a DataFrame.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data frame to sample from
-    subset_size : int
-        Number of rows in each subset
-    n_samples : int
-        Number of subsets to generate
-    random_state : int, optional
-        Random seed for reproducibility
+    Args:
+        df: The data frame to sample from
+        subset_size: Number of rows in each subset
+        n_samples: Number of subsets to generate
+        random_state: Random seed for reproducibility
 
-    Returns
-    -------
-    list[list[RowIndex]]
+    Returns:
         List of row index lists
+
+    Raises:
+        ValueError: If subset_size exceeds the number of rows in the frame.
     """
     if random_state is not None:
         random.seed(random_state)
@@ -80,24 +76,15 @@ def compute_gold_key(
 ) -> list[ColName]:
     """Compute the optimal deterministic key using exact or ILP solver.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    rows : Sequence[RowIndex]
-        Row indices to distinguish
-    columns : Sequence[ColName], optional
-        Columns to consider
-    costs : Mapping[ColName, float], optional
-        Cost of each column
-    epsilon_pairs : float, default 0.0
-        Tolerance for unresolved pairs
-    time_limit : float, default 10.0
-        Maximum time for exact solution
+    Args:
+        df: The data table
+        rows: Row indices to distinguish
+        columns: Columns to consider
+        costs: Cost of each column
+        epsilon_pairs: Tolerance for unresolved pairs
+        time_limit: Maximum time for exact solution
 
-    Returns
-    -------
-    list[ColName]
+    Returns:
         Optimal key columns
     """
     # Try ILP first (if available), then exact, then fallback to greedy
@@ -141,22 +128,14 @@ def compute_gold_next_column_probabilistic(
 ) -> ColName:
     """Compute the 'gold standard' next column under a model.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    state : CandidateState
-        Current state
-    model : RowVoiModel
-        Trained model
-    candidate_cols : Sequence[ColName], optional
-        Columns to consider
-    objective : str, default "mi"
-        Objective function
+    Args:
+        df: The data table
+        state: Current state
+        model: Trained model
+        candidate_cols: Columns to consider
+        objective: Objective function
 
-    Returns
-    -------
-    ColName
+    Returns:
         Optimal next column
     """
     # For now, use the model's suggestion as gold standard
@@ -169,26 +148,16 @@ def compute_gold_next_column_probabilistic(
 class KeyEvalResult:
     """Result of evaluating a key-finding method.
 
-    Attributes
-    ----------
-    method : str
-        Name of the method
-    rows : tuple[RowIndex, ...]
-        The candidate row set
-    key : list[ColName]
-        Columns selected by the method
-    key_cost : float
-        Total cost of the key
-    pair_coverage : float
-        Fraction of pairs distinguished
-    runtime_sec : float
-        Time taken to compute the key
-    gold_key : list[ColName], optional
-        Optimal key if computed
-    gold_cost : float, optional
-        Cost of optimal key
-    optimality_gap : float, optional
-        key_cost - gold_cost
+    Attributes:
+        method: Name of the method
+        rows: The candidate row set
+        key: Columns selected by the method
+        key_cost: Total cost of the key
+        pair_coverage: Fraction of pairs distinguished
+        runtime_sec: Time taken to compute the key
+        gold_key: Optimal key if computed
+        gold_cost: Cost of optimal key
+        optimality_gap: key_cost - gold_cost
     """
 
     method: str
@@ -215,24 +184,15 @@ def evaluate_keys(
 ) -> list[KeyEvalResult]:
     """Evaluate multiple key-finding methods on candidate sets.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    candidate_sets : Sequence[Sequence[RowIndex]]
-        Test cases (row subsets)
-    methods : Mapping[str, Callable]
-        Methods to evaluate (name -> function)
-    costs : Mapping[ColName, float], optional
-        Column costs
-    epsilon_pairs : float, default 0.0
-        Coverage tolerance
-    gold_solver : Callable, optional
-        Function to compute optimal solution
+    Args:
+        df: The data table
+        candidate_sets: Test cases (row subsets)
+        methods: Methods to evaluate (name -> function)
+        costs: Column costs
+        epsilon_pairs: Coverage tolerance
+        gold_solver: Function to compute optimal solution
 
-    Returns
-    -------
-    list[KeyEvalResult]
+    Returns:
         Evaluation results for each method and candidate set
     """
     results = []
@@ -305,24 +265,15 @@ def evaluate_keys(
 class PolicyEvalStats:
     """Statistics for a policy's performance.
 
-    Attributes
-    ----------
-    name : str
-        Policy name
-    mean_steps : float
-        Average number of steps to termination
-    mean_cost : float
-        Average total cost
-    mean_final_entropy : float
-        Average final entropy
-    mean_final_pair_coverage : float
-        Average final pairwise coverage
-    std_steps : float
-        Standard deviation of steps
-    std_cost : float
-        Standard deviation of cost
-    success_rate : float
-        Fraction of runs that achieved uniqueness
+    Attributes:
+        name: Policy name
+        mean_steps: Average number of steps to termination
+        mean_cost: Average total cost
+        mean_final_entropy: Average final entropy
+        mean_final_pair_coverage: Average final pairwise coverage
+        std_steps: Standard deviation of steps
+        std_cost: Standard deviation of cost
+        success_rate: Fraction of runs that achieved uniqueness
     """
 
     name: str
@@ -346,24 +297,15 @@ def evaluate_policies(
 ) -> list[PolicyEvalStats]:
     """Evaluate disambiguation policies on candidate sets.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    candidate_sets : Sequence[Sequence[RowIndex]]
-        Test cases (row subsets)
-    policies : Mapping[str, Policy]
-        Policies to evaluate (name -> policy)
-    feature_costs : Mapping[ColName, float], optional
-        Cost of each feature
-    stop : StopRules, optional
-        Stopping criteria (default: target_unique=True)
-    n_repeats : int, default 1
-        Number of times to run each policy per candidate set
+    Args:
+        df: The data table
+        candidate_sets: Test cases (row subsets)
+        policies: Policies to evaluate (name -> policy)
+        feature_costs: Cost of each feature
+        stop: Stopping criteria (default: target_unique=True)
+        n_repeats: Number of times to run each policy per candidate set
 
-    Returns
-    -------
-    list[PolicyEvalStats]
+    Returns:
         Performance statistics for each policy
     """
     if stop is None:
@@ -449,18 +391,12 @@ def evaluate_policies(
 class AcquisitionResult:
     """Result of a single feature acquisition simulation.
 
-    Attributes
-    ----------
-    subset_size : int
-        Size of the candidate set
-    steps_used : int
-        Number of queries made
-    unique_identified : bool
-        Whether unique row was found
-    optimal_steps : int, optional
-        Size of minimal key if computed
-    cols_used : list[ColName]
-        Sequence of columns queried
+    Attributes:
+        subset_size: Size of the candidate set
+        steps_used: Number of queries made
+        unique_identified: Whether unique row was found
+        optimal_steps: Size of minimal key if computed
+        cols_used: Sequence of columns queried
     """
 
     subset_size: int
@@ -483,28 +419,17 @@ def benchmark_policy(
 ) -> dict[int, list[AcquisitionResult]]:
     """Benchmark a policy across different subset sizes.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    policy : Policy
-        Policy to benchmark
-    subset_sizes : Sequence[int]
-        Different candidate set sizes to test
-    n_samples : int
-        Number of samples per size
-    compute_optimal : bool, default True
-        Whether to compute optimal key size
-    max_cols_for_exact : int, default 10
-        Max columns for exact solution
-    feature_costs : Mapping[ColName, float], optional
-        Column costs
-    random_state : int, optional
-        Random seed
+    Args:
+        df: The data table
+        policy: Policy to benchmark
+        subset_sizes: Different candidate set sizes to test
+        n_samples: Number of samples per size
+        compute_optimal: Whether to compute optimal key size
+        max_cols_for_exact: Max columns for exact solution
+        feature_costs: Column costs
+        random_state: Random seed
 
-    Returns
-    -------
-    dict[int, list[AcquisitionResult]]
+    Returns:
         Results keyed by subset size
     """
     if random_state is not None:

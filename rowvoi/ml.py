@@ -1,35 +1,27 @@
 """Model-based value-of-information routines for rowvoi.
 
-🔮 USE CASE: Sequential Conditional Selection (Informed Prediction)
-This module solves Use Case 2 where you make sequential column selection decisions
-based on learned patterns from historical data combined with currently observed
-values. This is CONDITIONAL prediction, not blind guessing.
+Sequential *conditional* selection: which column to acquire next, given what
+has already been observed in the current case plus patterns learned from
+historical data. This is prediction conditioned on evidence, not guessing.
 
-KEY INSIGHT: The model uses learned mutual information patterns to predict expected
-information gain CONDITIONAL on what's already been observed in the current case.
+:class:`RowVoiModel` learns per-column value frequencies and entropies from a
+DataFrame, then uses a :class:`~rowvoi.core.CandidateState` -- which columns
+have been observed and with what values -- to rank the remaining columns by
+expected information gain about the true row. Unlike the model-free policies,
+it carries a noise model, so an observation that disagrees with a candidate
+reduces that candidate's probability rather than eliminating it.
 
-Examples
---------
-- Interactive interviews: Given responses so far, what question provides most info?
-- Sequential experiments: Given current results, which test should we run next?
-- Adaptive diagnosis: Given initial symptoms, which additional test is most valuable?
+Typical uses: interactive interviews (given the answers so far, which question
+tells you most?), sequential experiments, adaptive diagnosis.
 
-🎯 For Use Case 1 (optimizing collection when complete information is available),
-see rowvoi.setcover and minimal_key_* functions instead.
+The design follows the active feature acquisition literature but is kept
+deliberately small.
 
-This module defines a small class, :class:`RowVoiModel`, that
-implements a conditional prediction policy for sequential feature acquisition.
-It learns patterns from historical data about mutual information relationships,
-then applies these patterns conditionally based on current observations.
-Using a :class:`~rowvoi.types.CandidateState` that captures what columns
-have been observed and their values, the model predicts which additional
-column will provide the most information gain for distinguishing the
-remaining candidate rows.
-
-The design is inspired by the active feature acquisition literature
-but kept deliberately simple for ease of understanding and extension.
-For deterministic/local policies that do not require learning a model,
-see :mod:`rowvoi.mi`.
+See Also:
+    :mod:`rowvoi.setcover` and :func:`rowvoi.find_key` when every value is
+    already known and the task is choosing a minimal set rather than a
+    sequence. :class:`rowvoi.CandidateMIPolicy` for the model-free
+    equivalent of the ranking done here.
 """
 
 import math
@@ -54,22 +46,21 @@ class RowVoiModel:
     expected information gain, and simulate sequential acquisition
     procedures to disambiguate an unknown row among a candidate set.
 
-    Parameters
-    ----------
-    smoothing : float, optional
-        A pseudo-count added to each category when computing
-        frequencies.  This mitigates zero-probability issues when
-        some candidate values are rare.  Default is 1e-6.
-    noise : float, optional
-        Probability that the observed feature value does not equal
-        the candidate row's true value.  When greater than zero,
-        ``noise`` spreads probability mass over other candidate
-        values according to the global frequency distribution.  Default
-        is 0.0 (no noise).
-    normalize_cols : bool, optional
-        Whether to compute and use normalized mutual information
-        values (i.e. divide by the feature entropy) when ranking
-        features.  Default is ``True``.
+    Args:
+        smoothing: A pseudo-count added to each category when computing
+            frequencies.  This mitigates zero-probability issues when
+            some candidate values are rare.  Default is 1e-6.
+        noise: Probability that the observed feature value does not equal
+            the candidate row's true value.  When greater than zero,
+            ``noise`` spreads probability mass over other candidate
+            values according to the global frequency distribution.  Default
+            is 0.0 (no noise).
+        normalize_cols: Whether to compute and use normalized mutual information
+            values (i.e. divide by the feature entropy) when ranking
+            features.  Default is ``True``.
+
+    Raises:
+        ValueError: If ``noise`` is outside [0, 1).
     """
 
     def __init__(
@@ -102,24 +93,18 @@ class RowVoiModel:
         all columns are treated as discrete.  The DataFrame is not
         modified in place; a copy with discretized values is stored.
 
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The dataset from which to learn frequencies.  Should
-            contain no missing values; callers should handle missing
-            values externally (e.g. by imputation or by treating
-            ``NaN`` as a category).
-        discrete_cols : Sequence[ColName], optional
-            Columns to treat as discrete.  If ``None``, all columns
-            are considered discrete.  Numeric columns not in this list
-            are discretized into quantile bins of size ``bins``.
-        bins : int, optional
-            Number of quantile bins for discretization of numeric
-            columns not specified in ``discrete_cols``.  Default is 3.
+        Args:
+            df: The dataset from which to learn frequencies.  Should
+                contain no missing values; callers should handle missing
+                values externally (e.g. by imputation or by treating
+                ``NaN`` as a category).
+            discrete_cols: Columns to treat as discrete.  If ``None``, all columns
+                are considered discrete.  Numeric columns not in this list
+                are discretized into quantile bins of size ``bins``.
+            bins: Number of quantile bins for discretization of numeric
+                columns not specified in ``discrete_cols``.  Default is 3.
 
-        Returns
-        -------
-        RowVoiModel
+        Returns:
             Returns ``self`` for chaining.
         """
         # Copy the DataFrame to avoid modifying user data.
@@ -184,20 +169,18 @@ class RowVoiModel:
         true value.  It assumes that ``true_value`` is in
         ``candidate_values``.
 
-        Parameters
-        ----------
-        col : ColName
-            Column being evaluated.
-        candidate_values : Iterable[object]
-            The possible values of the feature among the current
-            candidate rows.
-        true_value : object
-            The actual value for the candidate row ``r``.
+        Args:
+            col: Column being evaluated.
+            candidate_values: The possible values of the feature among the current
+                candidate rows.
+            true_value: The actual value for the candidate row ``r``.
 
-        Returns
-        -------
-        dict[object, float]
+        Returns:
             A probability mass function over ``candidate_values``.
+
+        Raises:
+            ValueError: If the global frequency table has no entry for this
+                column, so the noise mass cannot be distributed.
         """
         if self.noise <= 0.0:
             # Deterministic: all mass on the true value.
@@ -259,17 +242,15 @@ class RowVoiModel:
         5. Return the expectation of these entropies weighted by
            ``P(X_col=v | E)``.
 
-        Parameters
-        ----------
-        state : CandidateState
-            The current candidate state.
-        col : ColName
-            The column of interest.
+        Args:
+            state: The current candidate state.
+            col: The column of interest.
 
-        Returns
-        -------
-        float
+        Returns:
             The expected conditional entropy (in bits).
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
         """
         if self._df is None:
             raise RuntimeError(
@@ -342,30 +323,27 @@ class RowVoiModel:
         diagnostic purposes but is not used to rank features unless
         ``objective`` is set accordingly.
 
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The data table.  If different from the DataFrame passed
-            to :meth:`fit`, it will be discretized using the same
-            rules.
-        state : CandidateState
-            The current candidate state.
-        candidate_cols : Sequence[ColName], optional
-            A list of columns to consider.  If ``None``, all columns
-            not yet observed in ``state.observed_cols`` are considered.
-        objective : str, optional
-            Objective used for ranking.  One of ``'mi'`` or
-            ``'mi_over_cost'``.  Default is ``'mi'``.
-        feature_costs : dict[ColName, float], optional
-            Mapping of feature costs.  Required if objective is
-            ``'mi_over_cost'``.  Costs must be positive.
+        Args:
+            df: The data table.  If different from the DataFrame passed
+                to :meth:`fit`, it will be discretized using the same
+                rules.
+            state: The current candidate state.
+            candidate_cols: A list of columns to consider.  If ``None``, all columns
+                not yet observed in ``state.observed_cols`` are considered.
+            objective: Objective used for ranking.  One of ``'mi'`` or
+                ``'mi_over_cost'``.  Default is ``'mi'``.
+            feature_costs: Mapping of feature costs.  Required if objective is
+                ``'mi_over_cost'``.  Costs must be positive.
 
-        Returns
-        -------
-        FeatureSuggestion or None
+        Returns:
             A :class:`FeatureSuggestion` containing the best column and
             associated information gain estimates, or ``None`` if no
             eligible columns remain.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+            ValueError: If objective is ``'mi_over_cost'`` and a candidate
+                column has no cost, or a supplied cost is not positive.
         """
         if candidate_cols is None:
             candidate_cols = [c for c in df.columns if c not in state.observed_cols]
@@ -490,38 +468,27 @@ class RowVoiModel:
         been reached.  The history of suggestions (with associated
         VOI metrics) is returned.
 
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The data table (same columns as used for fitting).  If
-            different from ``self._df``, it will be discretized
-            consistently.
-        true_row : RowIndex
-            The index of the actual row to identify.  Must be
-            contained in ``initial_state.candidate_rows``.
-        initial_state : CandidateState
-            The starting candidate state.  This object is not
-            modified; a new state is created for the simulation.
-        candidate_cols : Sequence[ColName], optional
-            Optional subset of columns to consider when selecting
-            features.  If ``None``, all columns not yet observed are
-            considered at each step.
-        stop_when_unique : bool, optional
-            If ``True`` (default), stop the acquisition as soon as
-            the posterior concentrates all mass on a single row.  If
-            ``False``, continue until ``max_steps`` is reached.
-        max_steps : int, optional
-            Maximum number of features to query.  If ``None``, no
-            explicit limit is imposed.
-        objective : str, optional
-            Objective passed to :meth:`suggest_next_feature` (either
-            ``'mi'`` or ``'mi_over_cost'``).  Default is ``'mi'``.
-        feature_costs : dict[ColName, float], optional
-            Feature cost mapping used if ``objective='mi_over_cost'``.
+        Args:
+            df: The data table (same columns as used for fitting).  If
+                different from ``self._df``, it will be discretized
+                consistently.
+            true_row: The index of the actual row to identify.  Must be
+                contained in ``initial_state.candidate_rows``.
+            initial_state: The starting candidate state.  This object is not
+                modified; a new state is created for the simulation.
+            candidate_cols: Optional subset of columns to consider when selecting
+                features.  If ``None``, all columns not yet observed are
+                considered at each step.
+            stop_when_unique: If ``True`` (default), stop the acquisition as soon as
+                the posterior concentrates all mass on a single row.  If
+                ``False``, continue until ``max_steps`` is reached.
+            max_steps: Maximum number of features to query.  If ``None``, no
+                explicit limit is imposed.
+            objective: Objective passed to :meth:`suggest_next_feature` (either
+                ``'mi'`` or ``'mi_over_cost'``).  Default is ``'mi'``.
+            feature_costs: Feature cost mapping used if ``objective='mi_over_cost'``.
 
-        Returns
-        -------
-        list[FeatureSuggestion]
+        Returns:
             A list of suggestions (one per query) containing the
             column chosen at each step and the associated VOI metrics.
             The length of the list equals the number of queries made.
