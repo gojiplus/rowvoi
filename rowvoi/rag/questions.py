@@ -152,6 +152,7 @@ def next_question(
         question is left to ask
 
     Examples:
+        >>> from rowvoi.rag import next_question
         >>> # q1 splits the four candidates evenly; q2 tells them apart not at all
         >>> answers = {"q1": ["a", "a", "b", "b"], "q2": ["x", "x", "x", "x"]}
         >>> suggestion = next_question(answers)

@@ -8,7 +8,6 @@ Core Types
 
 .. automodule:: rowvoi.core
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Set Cover Engine
@@ -16,7 +15,6 @@ Set Cover Engine
 
 .. automodule:: rowvoi.setcover
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Deterministic Keys
@@ -24,7 +22,6 @@ Deterministic Keys
 
 .. automodule:: rowvoi.keys
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Probabilistic Keys
@@ -32,7 +29,6 @@ Probabilistic Keys
 
 .. automodule:: rowvoi.prob_keys
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Policies
@@ -40,7 +36,6 @@ Policies
 
 .. automodule:: rowvoi.policies
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Sessions
@@ -48,7 +43,6 @@ Sessions
 
 .. automodule:: rowvoi.session
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Machine Learning
@@ -56,7 +50,6 @@ Machine Learning
 
 .. automodule:: rowvoi.ml
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Evaluation
@@ -64,7 +57,6 @@ Evaluation
 
 .. automodule:: rowvoi.eval
    :members:
-   :undoc-members:
    :show-inheritance:
 
 RAG Adapters
@@ -72,7 +64,6 @@ RAG Adapters
 
 .. automodule:: rowvoi.rag
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Minimal Sufficient Context
@@ -80,7 +71,6 @@ Minimal Sufficient Context
 
 .. automodule:: rowvoi.rag.context
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Clarifying Questions
@@ -88,7 +78,6 @@ Clarifying Questions
 
 .. automodule:: rowvoi.rag.questions
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Adaptive Retrieval
@@ -96,7 +85,6 @@ Adaptive Retrieval
 
 .. automodule:: rowvoi.rag.retrieval
    :members:
-   :undoc-members:
    :show-inheritance:
 
 LLM Interfaces
@@ -104,5 +92,4 @@ LLM Interfaces
 
 .. automodule:: rowvoi.rag.protocols
    :members:
-   :undoc-members:
    :show-inheritance:

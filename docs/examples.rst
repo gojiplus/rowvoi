@@ -1,221 +1,194 @@
 Examples
 ========
 
-This section provides detailed examples of using the ``rowvoi`` package for interactive row disambiguation.
+Every example on this page is executed as part of the documentation build, so
+the printed output is what the code actually produces.
 
-Basic Usage
------------
+Entity resolution
+-----------------
 
-Finding Minimal Keys
-~~~~~~~~~~~~~~~~~~~~~
+You have records that may refer to the same person and need to know which
+fields settle it.
 
-The most basic task is finding which columns are needed to distinguish between rows:
-
-.. code-block:: python
+.. testcode::
 
    import pandas as pd
-   from rowvoi import minimal_key_greedy, minimal_key_exact, is_key
+   from rowvoi import KeyProblem
 
-   # Create a sample dataset
-   df = pd.DataFrame({
-       "name": ["Alice", "Bob", "Alice", "Charlie"],
-       "age": [25, 30, 25, 35],
-       "city": ["NYC", "LA", "SF", "NYC"],
-       "salary": [50000, 60000, 55000, 70000]
+   customers = pd.DataFrame({
+       "name":  ["Alice Smith", "Alice Smith", "Bob Jones", "Alice Smith"],
+       "city":  ["NYC", "NYC", "NYC", "SF"],
+       "email": ["a@x.com", "alice@y.com", "b@x.com", "a@x.com"],
+       "tier":  ["gold", "gold", "gold", "gold"],
    })
 
-   # Check if columns form a key for specific rows
-   print(is_key(df, ["name"], [0, 1]))      # False (Alice appears twice)
-   print(is_key(df, ["name", "city"], [0, 2]))  # True
+   problem = KeyProblem(customers, rows=[0, 1, 2, 3])
 
-   # Find minimal distinguishing columns
-   print(minimal_key_greedy(df, [0, 2]))    # ['city'] - distinguishes Alice in NYC from Alice in SF
-   print(minimal_key_exact(df, [0, 1, 3]))  # ['name'] - distinguishes Alice from Bob and Charlie
+   print(problem.is_key(["name"]))
+   print(problem.is_key(["name", "city"]))
+   print(problem.is_key(["email", "city"]))
 
-Model-Based Feature Selection
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. testoutput::
 
-For more sophisticated feature selection using information theory:
+   False
+   False
+   True
 
-.. code-block:: python
+``is_key`` is a method on the problem, not a free function. Partial credit is
+available through ``epsilon_pairs``, which asks only that a given fraction of
+row pairs be separated:
 
-   from rowvoi import RowVoiModel, CandidateState
+.. testcode::
 
-   # Fit a model to the dataset
-   model = RowVoiModel().fit(df)
+   print(f"{problem.pairwise_coverage(['name']):.2f}")
+   print(problem.is_key(["name"], epsilon_pairs=0.5))
 
-   # Create an initial state with uncertainty between rows 0 and 1
-   state = CandidateState(
-       candidate_rows=[0, 1],
-       posterior={0: 0.6, 1: 0.4},  # Alice is more likely than Bob
-       observed_cols=[],
-       observed_values={}
+.. testoutput::
+
+   0.50
+   True
+
+Cost-aware acquisition
+----------------------
+
+Fields differ in what they cost to obtain, so a minimal key by *count* is not
+necessarily a minimal key by *effort*.
+
+.. testcode::
+
+   from rowvoi import find_key, plan_key_path
+
+   costs = {"name": 1.0, "city": 1.0, "email": 20.0, "tier": 1.0}
+
+   print(find_key(customers, [0, 1, 2, 3], strategy="exact"))
+   print(find_key(customers, [0, 1, 2, 3], costs=costs, strategy="exact"))
+
+.. testoutput::
+
+   ['city', 'email']
+   ['city', 'email']
+
+Here the expensive field is genuinely required -- nothing else separates the
+two New York Alices -- so pricing it does not change the answer.
+``plan_key_path`` gives the acquisition *order* along with what each step
+buys:
+
+.. testcode::
+
+   path = plan_key_path(customers, [0, 1, 2, 3], costs=costs)
+   for step in path.steps:
+       print(f"{step.col:6s} cost={step.cumulative_cost:5.1f} "
+             f"coverage={step.coverage:.0%}")
+
+.. testoutput::
+
+   name   cost=  1.0 coverage=50%
+   city   cost=  2.0 coverage=83%
+   email  cost= 22.0 coverage=100%
+
+That curve is the useful part: five sixths of the ambiguity goes away for two
+units of effort, and the last sixth costs twenty more.
+
+.. testcode::
+
+   print(path.prefix_for_budget(10.0))
+   print(path.prefix_for_epsilon_pairs(0.2))
+
+.. testoutput::
+
+   ['name', 'city']
+   ['name', 'city']
+
+Running an interactive session
+------------------------------
+
+A session drives a policy to completion, either against a real user or, as
+here, a simulated one.
+
+.. testcode::
+
+   from rowvoi import CandidateMIPolicy, DisambiguationSession, StopRules
+
+   session = DisambiguationSession(
+       customers,
+       candidate_rows=[0, 1, 2, 3],
+       policy=CandidateMIPolicy(costs=costs),
+       feature_costs=costs,
    )
 
-   # Get the best feature to query next
-   suggestion = model.suggest_next_feature(df, state)
-   print(f"Query column: {suggestion.col}")
-   print(f"Expected information gain: {suggestion.expected_ig:.3f}")
+   steps = session.run(StopRules(target_unique=True), true_row=1)
+   for step in steps:
+       print(f"asked {step.col!r} -> {step.observed_value!r}")
+   print("resolved to row", session.state.unique_row)
 
-   # Simulate observing a value
-   observed_value = df.loc[0, suggestion.col]  # Assume we observe the true row 0 value
-   
-   # Update the state
-   new_state = CandidateState(
-       candidate_rows=state.candidate_rows,
-       posterior=state.posterior,
-       observed_cols=state.observed_cols + [suggestion.col],
-       observed_values={**state.observed_values, suggestion.col: observed_value}
+.. testoutput::
+
+   asked 'name' -> 'Alice Smith'
+   asked 'city' -> 'NYC'
+   asked 'email' -> 'alice@y.com'
+   resolved to row 1
+
+Model-based selection
+---------------------
+
+:class:`~rowvoi.RowVoiModel` learns value frequencies from historical data and
+carries a noise model, so a disagreeing observation lowers a candidate's
+probability instead of eliminating it.
+
+.. testcode::
+
+   from rowvoi import CandidateState, RowVoiModel
+
+   model = RowVoiModel(noise=0.05).fit(customers)
+   state = CandidateState.uniform([0, 1, 2, 3])
+
+   suggestion = model.suggest_next_feature(customers, state)
+   print(suggestion.col)
+   print(f"{suggestion.expected_voi:.2f} bits")
+
+.. testoutput::
+
+   email
+   1.17 bits
+
+Benchmarking policies
+---------------------
+
+``evaluate_policies`` runs several policies over sampled candidate sets and
+reports averages.
+
+.. testcode::
+
+   from rowvoi import (
+       GreedyCoveragePolicy,
+       RandomPolicy,
+       evaluate_policies,
+       sample_candidate_sets,
    )
 
-Mutual Information Analysis
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Calculate information content of individual features:
-
-.. code-block:: python
-
-   from rowvoi import candidate_mi, best_feature_by_candidate_mi
-
-   # Calculate MI for a specific column
-   mi_age = candidate_mi(df, state, "age")
-   mi_city = candidate_mi(df, state, "city")
-   
-   print(f"MI for age: {mi_age:.3f}")
-   print(f"MI for city: {mi_city:.3f}")
-
-   # Find the column with highest MI
-   best_col = best_feature_by_candidate_mi(df, state)
-   print(f"Best column by MI: {best_col}")
-
-Simulation and Benchmarking
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Evaluate different policies across multiple scenarios:
-
-.. code-block:: python
-
-   from rowvoi import sample_candidate_sets, benchmark_policy
-
-   # Generate random candidate sets for testing
-   candidate_sets = sample_candidate_sets(df, k=2, n_samples=50)
-
-   # Define a simple greedy policy
-   def greedy_policy(df, state):
-       return best_feature_by_candidate_mi(df, state)
-
-   # Define a model-based policy
-   def model_policy(df, state):
-       model = RowVoiModel().fit(df)
-       return model.suggest_next_feature(df, state).col
-
-   # Benchmark the policies
-   greedy_results = benchmark_policy(df, candidate_sets, greedy_policy)
-   model_results = benchmark_policy(df, candidate_sets, model_policy)
-
-   print(f"Greedy policy - Mean queries: {greedy_results.mean_queries:.2f}")
-   print(f"Model policy - Mean queries: {model_results.mean_queries:.2f}")
-
-Advanced Usage
---------------
-
-Custom Noise Models
-~~~~~~~~~~~~~~~~~~~
-
-The RowVoiModel supports custom noise and prior specifications:
-
-.. code-block:: python
-
-   # Create a model with custom parameters
-   model = RowVoiModel(
-       noise_rate=0.1,     # 10% chance of observing wrong value
-       alpha=1.0           # Dirichlet prior concentration
-   )
-   model.fit(df)
-
-   # Use with non-uniform priors
-   state = CandidateState(
-       candidate_rows=[0, 1, 2],
-       posterior={0: 0.5, 1: 0.3, 2: 0.2},  # Non-uniform beliefs
-       observed_cols=[],
-       observed_values={}
+   candidate_sets = sample_candidate_sets(
+       customers, subset_size=2, n_samples=5, random_state=0
    )
 
-Working with Large Candidate Sets
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   stats = evaluate_policies(
+       customers,
+       candidate_sets,
+       policies={
+           "coverage": GreedyCoveragePolicy(),
+           "mutual_info": CandidateMIPolicy(),
+           "random": RandomPolicy(seed=0),
+       },
+       stop=StopRules(target_unique=True),
+   )
 
-For larger candidate sets, consider the computational trade-offs:
+   for s in sorted(stats, key=lambda s: s.name):
+       print(f"{s.name:12s} mean_steps={s.mean_steps:.2f}")
 
-.. code-block:: python
+.. testoutput::
 
-   # Create a larger dataset
-   large_df = pd.concat([df] * 100, ignore_index=True)
-   
-   # Sample multiple candidate sets
-   large_candidates = sample_candidate_sets(large_df, k=5, n_samples=20)
-   
-   # Use greedy methods for efficiency
-   for candidates in large_candidates[:5]:  # Test first 5
-       state = CandidateState(
-           candidate_rows=candidates,
-           posterior={r: 1.0/len(candidates) for r in candidates},
-           observed_cols=[],
-           observed_values={}
-       )
-       
-       # Greedy is faster for large candidate sets
-       best_col = best_feature_by_candidate_mi(large_df, state)
-       print(f"Best column for candidates {candidates}: {best_col}")
+   coverage     mean_steps=1.00
+   mutual_info  mean_steps=1.00
+   random       mean_steps=1.60
 
-Interactive Session Simulation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Simulate a complete interactive disambiguation session:
-
-.. code-block:: python
-
-   def simulate_session(df, true_row, candidate_rows, max_queries=10):
-       """Simulate an interactive disambiguation session."""
-       state = CandidateState(
-           candidate_rows=candidate_rows,
-           posterior={r: 1.0/len(candidate_rows) for r in candidate_rows},
-           observed_cols=[],
-           observed_values={}
-       )
-       
-       model = RowVoiModel().fit(df)
-       queries = 0
-       
-       while len(state.candidate_rows) > 1 and queries < max_queries:
-           # Get suggestion
-           suggestion = model.suggest_next_feature(df, state)
-           
-           # Simulate observing the true value
-           true_value = df.loc[true_row, suggestion.col]
-           
-           # Filter candidates based on observation
-           new_candidates = [
-               r for r in state.candidate_rows 
-               if df.loc[r, suggestion.col] == true_value
-           ]
-           
-           # Update state
-           state = CandidateState(
-               candidate_rows=new_candidates,
-               posterior={r: 1.0/len(new_candidates) for r in new_candidates},
-               observed_cols=state.observed_cols + [suggestion.col],
-               observed_values={**state.observed_values, suggestion.col: true_value}
-           )
-           
-           queries += 1
-           print(f"Query {queries}: {suggestion.col} = {true_value}")
-           print(f"  Remaining candidates: {new_candidates}")
-       
-       return queries, state.candidate_rows
-
-   # Run a simulation
-   final_queries, final_candidates = simulate_session(df, true_row=0, candidate_rows=[0, 1, 2])
-   print(f"Session completed in {final_queries} queries")
-   print(f"Final candidates: {final_candidates}")
-
-This example shows how the package can be used to build interactive systems for data disambiguation tasks.
+``sample_candidate_sets`` takes ``subset_size`` as a keyword-only argument,
+and ``evaluate_policies`` takes a mapping of names to policy objects.

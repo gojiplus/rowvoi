@@ -172,6 +172,7 @@ def select_context(
         Selected chunks plus coverage accounting
 
     Examples:
+        >>> from rowvoi.rag import Chunk, select_context
         >>> chunks = [Chunk("a", tokens=100), Chunk("b", tokens=100),
         ...           Chunk("c", tokens=400)]
         >>> claims = ["price", "release_date"]
@@ -215,6 +216,7 @@ def plan_context_path(
         Ordered acquisition path with per-step coverage and cost
 
     Examples:
+        >>> from rowvoi.rag import Chunk, plan_context_path
         >>> chunks = [Chunk("a", tokens=100), Chunk("b", tokens=100),
         ...           Chunk("c", tokens=400)]
         >>> claims = ["price", "release_date"]
