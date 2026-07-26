@@ -18,6 +18,27 @@ if TYPE_CHECKING:
     from .ml import RowVoiModel
 
 
+def _per_cost(gain: float, cost: float) -> float:
+    """Gain per unit cost, defined at cost zero.
+
+    A free column that buys something is infinitely good value and should be
+    taken first; a free column that buys nothing is worth nothing. Dividing
+    naively gives `inf` for the first and a `nan` for the second, and a `nan`
+    silently loses every comparison while emitting a numpy warning.
+
+    Args:
+        gain: Information or coverage the column provides.
+        cost: Cost of acquiring it. May be zero or negative.
+
+    Returns:
+        `gain / cost` when cost is positive; otherwise `inf` for a positive
+        gain and 0.0 for none.
+    """
+    if cost > 0:
+        return gain / cost
+    return math.inf if gain > 0 else 0.0
+
+
 class Policy(Protocol):
     """A strategy for picking the next column given the current state."""
 
@@ -120,7 +141,7 @@ class GreedyCoveragePolicy:
 
             if self.objective == "pairs":
                 weighted_gain = sum(pair_weights.get(p, 1.0) for p in newly_covered)
-                score = weighted_gain / cost
+                score = _per_cost(weighted_gain, cost)
             else:  # entropy
                 # Compute entropy reduction
                 # Group candidates by their value in this column
@@ -150,7 +171,7 @@ class GreedyCoveragePolicy:
                         h_after += p_val * h_group
 
                 entropy_reduction = h_before - h_after
-                score = entropy_reduction / cost
+                score = _per_cost(entropy_reduction, cost)
 
             if score > best_score:
                 best_col = col
@@ -277,7 +298,7 @@ class CandidateMIPolicy:
         for col in candidate_cols:
             mi = self.compute_mi(df, state, col)
             cost = self.costs.get(col, 1.0) if self.costs else 1.0
-            score = mi / cost
+            score = _per_cost(mi, cost)
 
             if score > best_score:
                 best_col = col

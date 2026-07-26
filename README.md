@@ -44,11 +44,18 @@
 pip install rowvoi
 ```
 
+The core depends only on pandas and numpy. Optional features:
+
+```bash
+pip install "rowvoi[optimization]"   # pulp, for the ILP set-cover strategy
+pip install "rowvoi[claude]"         # anthropic, for the RAG LLM adapters
+```
+
 ### Basic Example
 
 ```python
 import pandas as pd
-from rowvoi import find_key, CandidateState, GreedyCoveragePolicy, DisambiguationSession
+from rowvoi import find_key, GreedyCoveragePolicy, DisambiguationSession
 
 # Your data
 df = pd.DataFrame({
@@ -62,19 +69,21 @@ df = pd.DataFrame({
 rows = [0, 1, 2, 3]
 key = find_key(df, rows)  # -> ['email']
 
-# Interactive disambiguation
-state = CandidateState.uniform([0, 1])  # Alice records
-policy = GreedyCoveragePolicy()
-session = DisambiguationSession(df, [0, 1], policy=policy)
+# Interactive disambiguation of the two Alice records
+session = DisambiguationSession(df, [0, 1], policy=GreedyCoveragePolicy())
 
 # Get next question
 suggestion = session.next_question()
-print(f"Ask about: {suggestion.col}")  # -> 'city' or 'email'
+print(f"Ask about: {suggestion.col}")  # -> 'city'
 
 # Observe an answer and update
-step = session.observe('city', 'NYC')  
+session.observe('city', 'NYC')
 print(f"Remaining candidates: {session.state.candidate_rows}")  # -> [0]
 ```
+
+`find_key` answers "what would settle this?" in one shot;
+`DisambiguationSession` answers it one question at a time, which is what you
+want when each answer is expensive to get.
 
 ## 📖 API Overview
 
@@ -102,6 +111,10 @@ suggestion = FeatureSuggestion(
 
 ### Deterministic Key Finding
 
+A key is a minimum-cost set of columns that separates every pair of candidate
+rows. Cost defaults to one per column, so with no costs supplied this
+minimizes column count; supply costs and it minimizes effort instead.
+
 ```python
 from rowvoi import KeyProblem, find_key, plan_key_path
 
@@ -119,6 +132,11 @@ print(path.columns())  # -> ['name', 'age', ...]
 ```
 
 ### Interactive Policies
+
+A policy answers "which column next?" rather than "which set?". They differ in
+what they optimize and what they need: coverage and candidate-MI work directly
+off the candidate rows, while `MIPolicy` needs a fitted model and in exchange
+handles noisy observations.
 
 ```python
 from rowvoi import GreedyCoveragePolicy, CandidateMIPolicy, MIPolicy, RandomPolicy
@@ -164,6 +182,10 @@ print(f"Resolved in {len(steps)} steps")
 
 ### Evaluation & Benchmarking
 
+Policies are easy to argue about and easy to measure, so measure them. These
+run a policy over sampled candidate sets and report how many questions it
+needed and how often it actually resolved the row.
+
 ```python
 from rowvoi import sample_candidate_sets, evaluate_policies, evaluate_keys
 
@@ -194,11 +216,11 @@ for stat in policy_stats:
 computed — set cover and mutual information are reused as-is, over a different
 universe:
 
-| Tabular                     | RAG                                                       |
-| --------------------------- | --------------------------------------------------------- |
-| Cover row pairs with columns | Cover **claims** with **chunks** (cost = tokens)          |
-| Next column by MI            | Next **clarifying question** (cost = user patience)       |
-| Sequential acquisition       | Next **retrieval probe** (cost = latency)                 |
+| Tabular                       | RAG                                              |
+| ----------------------------- | ------------------------------------------------ |
+| Cover row pairs with columns  | Cover **claims** with **chunks** (cost = tokens) |
+| Next column by MI             | Next **clarifying question** (cost = patience)   |
+| Sequential acquisition        | Next **retrieval probe** (cost = latency)        |
 
 ### Minimal sufficient context
 
@@ -276,9 +298,9 @@ from rowvoi import StopRules
 from rowvoi.rag import RetrievalSession
 
 session = RetrievalSession(
-    probes,                       # candidates x probes outcome matrix
+    outcomes,                     # candidates x probes matrix of predicted results
     runner=my_backend,            # anything with .run(probe)
-    prior=retrieval_scores,       # scores become the prior
+    prior=retrieval_scores,       # retrieval scores become the prior
     costs={"rerank": 12.0},       # expensive probes must earn their place
     noise=0.05,
 )
@@ -319,7 +341,13 @@ A full runnable walkthrough of all three, with no API key required, is in
 
 ### Cost-Aware Selection
 
+The cheapest key and the smallest key are different objects. When a column is
+expensive -- a paid API call, a lab test, a question that annoys the user --
+cost belongs in the objective rather than in a comment.
+
 ```python
+from rowvoi import DisambiguationSession, GreedyCoveragePolicy, plan_key_path
+
 # Define column costs
 costs = {
     'name': 1.0,      # Cheap: already have
@@ -339,6 +367,8 @@ affordable_cols = path.prefix_for_budget(budget=5.0)
 ### Model-Based Selection
 
 ```python
+from rowvoi import MIPolicy, RowVoiModel
+
 # Train on historical data
 model = RowVoiModel(
     noise=0.05,           # Account for measurement noise
@@ -353,12 +383,19 @@ print(f"Expected VoI: {suggestion.expected_voi:.3f} bits")
 
 ### Probabilistic Methods
 
-```python
-from rowvoi import find_key_probabilistic, plan_key_path_probabilistic
+When values are uncertain rather than known, work against a fitted model and
+a posterior target instead of exact pair coverage. Both functions take the
+model as a positional argument:
 
-# Account for noise/uncertainty
-key = find_key_probabilistic(df, rows, noise_rate=0.1)
-path = plan_key_path_probabilistic(df, rows, noise_rate=0.1, costs=costs)
+```python
+from rowvoi import RowVoiModel, find_key_probabilistic, plan_key_path_probabilistic
+
+model = RowVoiModel(noise=0.05).fit(df)
+
+# Stop once one candidate holds 90% of the posterior mass
+key = find_key_probabilistic(df, rows, model, epsilon_posterior=0.1)
+
+path = plan_key_path_probabilistic(df, rows, model, costs=costs)
 ```
 
 ## 📊 Complete Examples
@@ -398,7 +435,15 @@ print(f"Resolved: {session.state.is_unique}")
 ### Example 2: Survey Optimization
 
 ```python
-from rowvoi import CandidateMIPolicy, StopRules, evaluate_policies
+import pandas as pd
+from rowvoi import (
+    CandidateMIPolicy,
+    GreedyCoveragePolicy,
+    RandomPolicy,
+    StopRules,
+    evaluate_policies,
+    sample_candidate_sets,
+)
 
 # Survey response data
 survey = pd.DataFrame({
@@ -460,21 +505,35 @@ Where:
 
 ## 📝 Development
 
-### Running Tests
+rowvoi follows the [py-canon](https://github.com/gojiplus/py-canon) fleet
+standard, applied with [preen](https://github.com/gojiplus/preen). Development
+dependencies live in PEP 735 dependency groups:
+
+```bash
+uv sync --all-groups --all-extras
+```
+
+### Running everything CI runs
+```bash
+make ci          # ruff, pyright, pydoclint, pytest
+make check       # preen fleet-conformance check
+```
+
+### Individually
 ```bash
 uv run pytest tests/ -v
+uv run ruff check . && uv run ruff format --check .
+uv run pyright
+uv run pydoclint --config pyproject.toml rowvoi/
 ```
 
-### Code Quality
+### Building documentation
 ```bash
-uv run ruff check .
-uv run mypy .
+make docs        # sphinx-build -W, warnings are errors
 ```
 
-### Building Documentation
-```bash
-cd docs && make html
-```
+Every example in the docs is a `testcode` block executed by the docs build, so
+`make docs` also verifies that they still produce the output they claim.
 
 ## 🤝 Contributing
 
@@ -493,6 +552,6 @@ MIT License - see [LICENSE](LICENSE) for details.
   year         = {2025},
   publisher    = {GitHub},
   url          = {https://github.com/gojiplus/rowvoi},
-  version      = {0.2.0}
+  version      = {0.3.0}
 }
 ```
