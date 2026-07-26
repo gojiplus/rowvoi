@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from rowvoi import KeyProblem, find_key, plan_key_path
+from rowvoi import KeyProblem, SolverUnavailableError, find_key, plan_key_path
 
 
 @pytest.fixture
@@ -114,7 +114,12 @@ class TestKeyProblem:
         assert problem.is_key(ga_key)
 
     def test_ilp_algorithm(self, complex_df):
-        """Test ILP algorithm if available."""
+        """Test ILP algorithm if a solver is available.
+
+        This previously caught ImportError, which `_ilp` swallowed internally
+        before returning a greedy key -- so the skip never fired and the test
+        silently asserted greedy behaviour instead.
+        """
         problem = KeyProblem(complex_df, [0, 1, 2])
 
         try:
@@ -126,8 +131,8 @@ class TestKeyProblem:
                 strategy="ilp", epsilon_pairs=0.1, time_limit=0.1
             )
             assert problem.is_key(ilp_eps_key, epsilon_pairs=0.1)
-        except ImportError:
-            pytest.skip("pulp not available for ILP")
+        except SolverUnavailableError:
+            pytest.skip("no LP solver available for ILP")
 
     def test_lp_algorithm(self, complex_df):
         """Test LP relaxation algorithm."""
@@ -172,9 +177,9 @@ class TestFindKey:
             key = find_key(complex_df, rows, strategy="ilp", time_limit=0.1)
             problem = KeyProblem(complex_df, rows)
             assert problem.is_key(key)
-        except ImportError:
-            # ILP requires pulp, which may not be available
-            pytest.skip("pulp not available for ILP strategy")
+        except SolverUnavailableError:
+            # ILP needs pulp and a working solver; neither is guaranteed.
+            pytest.skip("no LP solver available for ILP strategy")
 
     def test_lp_strategy(self, complex_df):
         """Test LP relaxation strategy."""

@@ -62,7 +62,7 @@ class TestSampleCandidateSets:
             assert all(len(s) == size for s in sets)
 
     def test_invalid_subset_size(self, sample_df):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="subset_size"):
             sample_candidate_sets(
                 sample_df,
                 subset_size=10,  # Larger than DataFrame

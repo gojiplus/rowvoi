@@ -21,17 +21,12 @@ ColName = Hashable
 class CandidateState:
     """Represents the current uncertainty over which row is "the one".
 
-    Attributes
-    ----------
-    candidate_rows : Sequence[RowIndex]
-        List of row indices under consideration
-    posterior : np.ndarray
-        Probabilities over candidate_rows, shape (n_candidates,)
-        Use uniform if deterministic / no model
-    observed_cols : set[ColName]
-        Set of columns that have been queried
-    observed_values : Mapping[ColName, Any]
-        Mapping col -> observed value (may be empty in planning mode)
+    Attributes:
+        candidate_rows: List of row indices under consideration
+        posterior: Probabilities over candidate_rows, shape (n_candidates,)
+            Use uniform if deterministic / no model
+        observed_cols: Set of columns that have been queried
+        observed_values: Mapping col -> observed value (may be empty in planning mode)
     """
 
     candidate_rows: Sequence[RowIndex]
@@ -80,8 +75,7 @@ class CandidateState:
     def unique_row(self) -> RowIndex | None:
         """Return the most probable row if unique, else None."""
         if self.is_unique and len(self.candidate_rows) > 0:
-            idx = np.argmax(self.posterior)
-            return self.candidate_rows[idx]
+            return self.candidate_rows[int(np.argmax(self.posterior))]
         return None
 
     @classmethod
@@ -93,18 +87,12 @@ class CandidateState:
     ) -> "CandidateState":
         """Create a state with uniform posterior over candidates.
 
-        Parameters
-        ----------
-        candidate_rows : Sequence[RowIndex]
-            The candidate row indices
-        observed_cols : set[ColName], optional
-            Already observed columns
-        observed_values : Mapping[ColName, Any], optional
-            Values of observed columns
+        Args:
+            candidate_rows: The candidate row indices
+            observed_cols: Already observed columns
+            observed_values: Values of observed columns
 
-        Returns
-        -------
-        CandidateState
+        Returns:
             State with uniform posterior distribution
         """
         n = len(candidate_rows)
@@ -121,18 +109,12 @@ class CandidateState:
     ) -> "CandidateState":
         """Filter candidates to those matching the observed value.
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The data frame containing candidate rows
-        col : ColName
-            The column that was observed
-        value : Any
-            The observed value
+        Args:
+            df: The data frame containing candidate rows
+            col: The column that was observed
+            value: The observed value
 
-        Returns
-        -------
-        CandidateState
+        Returns:
             New state with filtered candidates and renormalized posterior
         """
         # Find which candidates match the observed value
@@ -167,26 +149,88 @@ class CandidateState:
             observed_values=new_observed_values,
         )
 
+    def reweight(
+        self,
+        likelihoods: Sequence[float] | np.ndarray,
+        *,
+        observed_col: ColName | None = None,
+        observed_value: Any = None,
+    ) -> "CandidateState":
+        """Apply soft evidence: multiply the posterior by a likelihood vector.
+
+        The soft counterpart to :meth:`filter_candidates`. Where that method
+        drops every candidate whose value differs, this one only reweights, so
+        a candidate is never eliminated on evidence that is merely improbable.
+        Use it when evidence is graded rather than exact -- retrieval scores,
+        model-predicted answers, noisy observations.
+
+        Candidates are all retained (including zero-likelihood ones, whose
+        posterior becomes 0), so positional alignment with `likelihoods` holds
+        across successive updates.
+
+        Args:
+            likelihoods: P(evidence | candidate) for each candidate, in
+                candidate_rows order. Need not be normalized, but must be
+                non-negative
+                Need not be normalized, but must be non-negative
+            observed_col: Column or question this evidence came from,
+                recorded in observed_cols
+            observed_value: The observed value, recorded in observed_values
+
+        Returns:
+            New state with the renormalized posterior
+
+        Raises:
+            ValueError: If `likelihoods` has the wrong length, contains a
+                negative value, or
+                drives the total posterior mass to zero (evidence impossible under
+                every candidate -- the candidate set is wrong, not merely narrowed)
+        """
+        weights = np.asarray(likelihoods, dtype=float)
+
+        if weights.shape != (len(self.candidate_rows),):
+            raise ValueError(
+                f"Expected {len(self.candidate_rows)} likelihoods, "
+                f"got shape {weights.shape}"
+            )
+        if np.any(weights < 0):
+            raise ValueError("Likelihoods must be non-negative")
+
+        updated = self.posterior * weights
+        total = updated.sum()
+        if total <= 0:
+            raise ValueError(
+                "Evidence has zero likelihood under every candidate; "
+                "the posterior cannot be renormalized"
+            )
+
+        new_observed_cols = set(self.observed_cols)
+        new_observed_values = dict(self.observed_values)
+        if observed_col is not None:
+            new_observed_cols.add(observed_col)
+            new_observed_values[observed_col] = observed_value
+
+        return CandidateState(
+            candidate_rows=list(self.candidate_rows),
+            posterior=updated / total,
+            observed_cols=new_observed_cols,
+            observed_values=new_observed_values,
+        )
+
 
 @dataclass
 class FeatureSuggestion:
     """A recommendation of which column to query next.
 
-    Attributes
-    ----------
-    col : ColName
-        The column name suggested to query next
-    score : float
-        Raw score used to rank columns (e.g., MI, coverage gain)
-    expected_voi : float, optional
-        Expected value of information in bits
-    marginal_cost : float, optional
-        Cost of querying this column
-    debug : dict[str, Any], optional
-        Additional debugging information
+    Attributes:
+        col: The column name suggested to query next
+        score: Raw score used to rank columns (e.g., MI, coverage gain)
+        expected_voi: Expected value of information in bits
+        marginal_cost: Cost of querying this column
+        debug: Additional debugging information
     """
 
-    col: ColName
+    col: ColName | None
     score: float
     expected_voi: float | None = None
     marginal_cost: float | None = None

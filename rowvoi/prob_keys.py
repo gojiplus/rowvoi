@@ -35,28 +35,17 @@ def find_key_probabilistic(
     max_r p(r | E) >= 1 - epsilon_posterior, then returns
     the set of columns used.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    rows : Sequence[RowIndex]
-        Row indices to distinguish
-    model : RowVoiModel
-        Trained model for computing expected information
-    epsilon_posterior : float, default 0.05
-        Target residual uncertainty
-    columns : Sequence[ColName], optional
-        Columns to consider
-    costs : Mapping[ColName, float], optional
-        Cost of each column
-    objective : str, default "mi_over_cost"
-        Objective for column selection
-    max_steps : int, optional
-        Maximum number of columns to select
+    Args:
+        df: The data table
+        rows: Row indices to distinguish
+        model: Trained model for computing expected information
+        epsilon_posterior: Target residual uncertainty
+        columns: Columns to consider
+        costs: Cost of each column
+        objective: Objective for column selection
+        max_steps: Maximum number of columns to select
 
-    Returns
-    -------
-    list[ColName]
+    Returns:
         Columns selected by the greedy policy
     """
     # Create policy
@@ -103,24 +92,15 @@ def plan_key_path_probabilistic(
     given the current posterior (without actually observing values), pick
     the best, and iterate. Returns a KeyPath with expected coverage/cost.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    rows : Sequence[RowIndex]
-        Row indices to distinguish
-    model : RowVoiModel
-        Trained model for computing expected information
-    objective : str, default "mi_over_cost"
-        Objective for ordering columns
-    columns : Sequence[ColName], optional
-        Columns to consider
-    costs : Mapping[ColName, float], optional
-        Cost of each column
+    Args:
+        df: The data table
+        rows: Row indices to distinguish
+        model: Trained model for computing expected information
+        objective: Objective for ordering columns
+        columns: Columns to consider
+        costs: Cost of each column
 
-    Returns
-    -------
-    KeyPath
+    Returns:
         Expected path with coverage information
     """
     if not rows:
@@ -133,10 +113,7 @@ def plan_key_path_probabilistic(
     cumulative_cost = 0.0
 
     # Get candidate columns
-    if columns is None:
-        columns = list(df.columns)
-    else:
-        columns = list(columns)
+    columns = list(df.columns) if columns is None else list(columns)
 
     # Compute total pairs for coverage tracking
     n = len(rows)
@@ -155,20 +132,19 @@ def plan_key_path_probabilistic(
 
             # Get expected MI from model
             suggestion = model.suggest_next_feature(df, state, candidate_cols=[col])
+            if suggestion is None:
+                # Nothing to say about this column (already observed, or no
+                # candidates left), so it cannot win the argmax.
+                continue
+
+            voi = (
+                suggestion.expected_voi if suggestion.expected_voi else suggestion.score
+            )
 
             if objective == "mi":
-                score = (
-                    suggestion.expected_voi
-                    if suggestion.expected_voi
-                    else suggestion.score
-                )
+                score = voi
             elif objective == "mi_over_cost":
                 cost = costs.get(col, 1.0) if costs else 1.0
-                voi = (
-                    suggestion.expected_voi
-                    if suggestion.expected_voi
-                    else suggestion.score
-                )
                 score = voi / cost if cost > 0 else voi
             else:  # expected_entropy_reduction
                 score = (
@@ -181,11 +157,7 @@ def plan_key_path_probabilistic(
             if score > best_score:
                 best_col = col
                 best_score = score
-                best_mi = (
-                    suggestion.expected_voi
-                    if suggestion.expected_voi
-                    else suggestion.score
-                )
+                best_mi = voi
 
         if best_col is None:
             break
@@ -238,21 +210,14 @@ def estimate_coverage_probability(
 ) -> float:
     """Estimate the probability that cols will distinguish rows.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    rows : Sequence[RowIndex]
-        Row indices to consider
-    cols : Sequence[ColName]
-        Columns to evaluate
-    model : RowVoiModel, optional
-        Model for probabilistic estimation.
-        If None, uses deterministic coverage.
+    Args:
+        df: The data table
+        rows: Row indices to consider
+        cols: Columns to evaluate
+        model: Model for probabilistic estimation.
+            If None, uses deterministic coverage.
 
-    Returns
-    -------
-    float
+    Returns:
         Estimated probability of full disambiguation
     """
     if model is None:
@@ -276,7 +241,11 @@ def estimate_coverage_probability(
 
         # Estimate reduction in candidates
         # This is a rough approximation
-        if state.entropy > 0 and suggestion.expected_voi is not None:
+        if (
+            state.entropy > 0
+            and suggestion is not None
+            and suggestion.expected_voi is not None
+        ):
             reduction_factor = max(0.3, 1.0 - suggestion.expected_voi / state.entropy)
         else:
             reduction_factor = 0.5

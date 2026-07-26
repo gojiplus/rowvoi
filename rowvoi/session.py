@@ -20,18 +20,12 @@ from .policies import Policy
 class StopRules:
     """Conditions for stopping a disambiguation session.
 
-    Attributes
-    ----------
-    max_steps : int, optional
-        Maximum number of columns to query
-    cost_budget : float, optional
-        Maximum total cost to spend
-    epsilon_posterior : float, optional
-        Stop when residual_uncertainty <= epsilon
-    epsilon_pairs : float, optional
-        Stop when unresolved pair fraction <= epsilon
-    target_unique : bool, default True
-        Stop when state.is_unique is True
+    Attributes:
+        max_steps: Maximum number of columns to query
+        cost_budget: Maximum total cost to spend
+        epsilon_posterior: Stop when residual_uncertainty <= epsilon
+        epsilon_pairs: Stop when unresolved pair fraction <= epsilon
+        target_unique: Stop when state.is_unique is True
     """
 
     max_steps: int | None = None
@@ -49,20 +43,13 @@ class StopRules:
     ) -> tuple[bool, str]:
         """Check if any stopping condition is met.
 
-        Parameters
-        ----------
-        state : CandidateState
-            Current state
-        steps : int
-            Number of steps taken so far
-        total_cost : float
-            Total cost incurred so far
-        df : pd.DataFrame, optional
-            Data frame (needed for epsilon_pairs check)
+        Args:
+            state: Current state
+            steps: Number of steps taken so far
+            total_cost: Total cost incurred so far
+            df: Data frame (needed for epsilon_pairs check)
 
-        Returns
-        -------
-        tuple[bool, str]
+        Returns:
             (should_stop, reason) where reason explains why stopping
         """
         # Check max steps
@@ -78,9 +65,11 @@ class StopRules:
             return True, "Found unique row"
 
         # Check posterior epsilon
-        if self.epsilon_posterior is not None:
-            if state.residual_uncertainty <= self.epsilon_posterior:
-                return True, f"Residual uncertainty <= {self.epsilon_posterior}"
+        if (
+            self.epsilon_posterior is not None
+            and state.residual_uncertainty <= self.epsilon_posterior
+        ):
+            return True, f"Residual uncertainty <= {self.epsilon_posterior}"
 
         # Check pairwise coverage epsilon
         if self.epsilon_pairs is not None and df is not None:
@@ -97,24 +86,15 @@ class StopRules:
 class SessionStep:
     """Record of a single step in a disambiguation session.
 
-    Attributes
-    ----------
-    col : ColName
-        Column that was queried
-    observed_value : Any
-        Value observed for the true row
-    suggestion : FeatureSuggestion
-        The suggestion that led to this query
-    cost : float
-        Cost of this query
-    cumulative_cost : float
-        Total cost up to this point
-    entropy_before : float
-        Entropy before observing this column
-    entropy_after : float
-        Entropy after observing this column
-    pair_coverage_after : float, optional
-        Pairwise coverage after this step
+    Attributes:
+        col: Column that was queried
+        observed_value: Value observed for the true row
+        suggestion: The suggestion that led to this query
+        cost: Cost of this query
+        cumulative_cost: Total cost up to this point
+        entropy_before: Entropy before observing this column
+        entropy_after: Entropy after observing this column
+        pair_coverage_after: Pairwise coverage after this step
     """
 
     col: ColName
@@ -133,18 +113,12 @@ class DisambiguationSession:
     Maintains CandidateState, queries a Policy for the next column,
     and updates with observations.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The data table
-    candidate_rows : Sequence[RowIndex]
-        Initial candidate row indices
-    prior : Mapping[RowIndex, float], optional
-        Prior probabilities over candidates
-    policy : Policy
-        Policy for selecting next column
-    feature_costs : Mapping[ColName, float], optional
-        Cost of querying each column
+    Args:
+        df: The data table
+        candidate_rows: Initial candidate row indices
+        prior: Prior probabilities over candidates
+        policy: Policy for selecting next column
+        feature_costs: Cost of querying each column
     """
 
     def __init__(
@@ -205,14 +179,10 @@ class DisambiguationSession:
 
         Does NOT update state yet - just returns the suggestion.
 
-        Parameters
-        ----------
-        candidate_cols : Sequence[ColName], optional
-            Columns to consider
+        Args:
+            candidate_cols: Columns to consider
 
-        Returns
-        -------
-        FeatureSuggestion
+        Returns:
             Recommendation for next column
         """
         return self.policy.suggest(self.df, self._state, candidate_cols)
@@ -220,16 +190,11 @@ class DisambiguationSession:
     def observe(self, col: ColName, value: Any) -> SessionStep:
         """Incorporate an observation into the state.
 
-        Parameters
-        ----------
-        col : ColName
-            Column that was queried
-        value : Any
-            Observed value
+        Args:
+            col: Column that was queried
+            value: Observed value
 
-        Returns
-        -------
-        SessionStep
+        Returns:
             Record of this step
         """
         # Get the suggestion that led to this column (if available)
@@ -281,19 +246,13 @@ class DisambiguationSession:
     ) -> list[SessionStep]:
         """Run an entire session until a stop rule triggers.
 
-        Parameters
-        ----------
-        stop : StopRules
-            Stopping criteria
-        candidate_cols : Sequence[ColName], optional
-            Columns to consider
-        true_row : RowIndex, optional
-            The true row index (for simulation).
-            If None, picks the highest posterior candidate.
+        Args:
+            stop: Stopping criteria
+            candidate_cols: Columns to consider
+            true_row: The true row index (for simulation).
+                If None, picks the highest posterior candidate.
 
-        Returns
-        -------
-        list[SessionStep]
+        Returns:
             Full sequence of steps taken
         """
         # Determine true row for simulation
@@ -301,13 +260,12 @@ class DisambiguationSession:
             # Use highest posterior candidate
             import numpy as np
 
-            idx = np.argmax(self._state.posterior)
-            true_row = self._state.candidate_rows[idx]
+            true_row = self._state.candidate_rows[int(np.argmax(self._state.posterior))]
 
         # Run session
         while True:
             # Check stopping conditions
-            should_stop, reason = stop.should_stop(
+            should_stop, _reason = stop.should_stop(
                 self._state, self.steps_taken, self._cumulative_cost, self.df
             )
             if should_stop:
@@ -330,10 +288,8 @@ class DisambiguationSession:
     def reset(self, candidate_rows: Sequence[RowIndex] | None = None) -> None:
         """Reset the session to initial state.
 
-        Parameters
-        ----------
-        candidate_rows : Sequence[RowIndex], optional
-            New candidate rows. If None, reset to original candidates.
+        Args:
+            candidate_rows: New candidate rows. If None, reset to original candidates.
         """
         if candidate_rows is None:
             candidate_rows = self._state.candidate_rows

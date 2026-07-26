@@ -2,7 +2,7 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: 'RowVoi: Finding minimal distinguishing columns and the next best feature to query'
+title: 'RowVoi: Minimal keys and row-wise value-of-information for disambiguating tabular records'
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
@@ -20,16 +20,21 @@ repository-code: 'https://github.com/gojiplus/rowvoi'
 url: 'https://github.com/gojiplus/rowvoi'
 repository: 'https://github.com/gojiplus/rowvoi'
 abstract: >-
-  RowVoi provides a set of tools for interactive
-  disambiguation of rows in a dataset using value of
-  information policies. Given a small set of candidate rows,
-  it helps determine which columns (features) must be
-  observed to uniquely distinguish these rows, using both
-  deterministic set cover algorithms and probabilistic
-  ε-relaxed approaches. The package implements multiple
-  algorithms including exact and greedy minimal key finding,
-  mutual information-based feature selection, and adaptive
-  policies that respond to observations.
+  RowVoi provides tools for interactive disambiguation of
+  rows in a dataset using value-of-information policies.
+  Given a small set of candidate rows, it determines which
+  columns must be observed to distinguish them, using both
+  deterministic weighted set cover and probabilistic
+  epsilon-relaxed approaches, and which single column to
+  acquire next under a cost budget. It implements exact,
+  greedy, ILP and metaheuristic minimal key finding, mutual
+  information-based feature selection, and adaptive policies
+  that respond to observations. The same two engines are
+  exposed for retrieval-augmented generation: selecting a
+  minimal set of retrieved chunks that supports the claims an
+  answer requires, choosing the clarifying question that best
+  resolves an ambiguous result set, and sequencing retrieval
+  probes by expected information gain.
 keywords:
   - data-disambiguation
   - value-of-information
@@ -41,7 +46,9 @@ keywords:
   - set-cover
   - probabilistic-set-cover
   - adaptive-submodular
+  - rag
+  - retrieval-augmented-generation
+  - context-selection
 license: MIT
-commit: 9fdd040
-version: 0.1.0
-date-released: '2025-01-01'
+version: 0.3.0
+date-released: '2026-07-25'

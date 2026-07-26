@@ -48,7 +48,7 @@ df = pd.DataFrame(
     }
 )
 
-print(f"📊 Dataset: {len(df)} rows × {len(df.columns)} columns")
+print(f"📊 Dataset: {len(df)} rows x {len(df.columns)} columns")
 print(f"   Columns: {list(df.columns)}")
 print("")
 

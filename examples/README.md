@@ -9,6 +9,7 @@ Welcome! This directory contains examples to help you learn and use RowVoi effec
 | 🟢 **Learn the basics** | [`getting_started/`](getting_started/) | Start with customer deduplication |
 | 🟡 **Solve business problems** | [`business_use_cases/`](business_use_cases/) | Real-world applications |
 | 🔴 **Understand algorithms** | [`advanced_algorithms/`](advanced_algorithms/) | Deep technical examples |
+| 🔎 **Apply it to retrieval** | [`rag/`](rag/) | Minimal context, clarifying questions, adaptive probes |
 
 ## 📁 Directory Structure
 
@@ -24,6 +25,9 @@ examples/
 ├── advanced_algorithms/       # 🔴 Technical deep-dives
 │   ├── known_data_setcover_demo.py         # Algorithm performance comparisons
 │   └── probabilistic_demo.py               # Uncertainty and noise handling
+│
+├── rag/                       # 🔎 Retrieval-augmented generation
+│   └── rag_pipeline_demo.py                # All three RAG adapters, no API key needed
 │
 └── data/                      # 📊 Shared datasets
     └── customers_sample.csv                 # Real anonymized customer data
@@ -82,7 +86,7 @@ suggestion = session.next_question()  # What to ask next?
 ### **Cost-Aware Selection**
 Balance accuracy vs. expense when some fields cost more to verify.
 ```python
-costs = {'email': 1.0, 'address': 5.0, 'income': 10.0}
+costs = {"email": 1.0, "address": 5.0, "income": 10.0}
 key = find_key(df, rows, costs=costs)  # Chooses cost-effective fields
 ```
 
@@ -122,7 +126,7 @@ More datasets will be added based on user feedback.
 Found these examples helpful? Have suggestions for new use cases? 
 
 - 🐛 **Bug reports**: [GitHub Issues](https://github.com/gojiplus/rowvoi/issues)
-- 💡 **Feature requests**: [GitHub Discussions](https://github.com/gojiplus/rowvoi/discussions)
+- 💡 **Feature requests**: [GitHub Issues](https://github.com/gojiplus/rowvoi/issues)
 - 📚 **Documentation**: Help us improve these examples!
 
 ---

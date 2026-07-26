@@ -8,8 +8,8 @@ The rowvoi package provides tools for row disambiguation in tabular data:
 - Comprehensive evaluation tools
 """
 
+import importlib.metadata
 import logging
-from importlib import metadata
 
 # Core types and data structures
 from .core import CandidateState, FeatureSuggestion
@@ -47,13 +47,18 @@ from .prob_keys import find_key_probabilistic, plan_key_path_probabilistic
 
 # Interactive sessions
 from .session import DisambiguationSession, StopRules
+
+# Set cover engine
+from .setcover import SolverUnavailableError
 from .types import ColName, RowIndex
 
 try:
-    __version__ = metadata.version("rowvoi")
-except metadata.PackageNotFoundError:
-    # Fallback for development installs
-    __version__ = "0.2.0"
+    __version__ = importlib.metadata.version("rowvoi")
+except importlib.metadata.PackageNotFoundError:  # pragma: no cover
+    # The version is derived from the git tag at build time, so an uninstalled
+    # source tree has no metadata to read. Never hardcode a number here: it
+    # would silently disagree with the tag.
+    __version__ = "0+unknown"
 
 __all__ = [
     # Core types
@@ -66,6 +71,7 @@ __all__ = [
     "KeyPath",
     "find_key",
     "plan_key_path",
+    "SolverUnavailableError",
     # Probabilistic methods
     "find_key_probabilistic",
     "plan_key_path_probabilistic",
@@ -99,14 +105,10 @@ __all__ = [
 def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger for the rowvoi package.
 
-    Parameters
-    ----------
-    name : str | None, optional
-        Logger name. If None, uses the package name.
+    Args:
+        name: Logger name. If None, uses the package name.
 
-    Returns
-    -------
-    logging.Logger
+    Returns:
         Configured logger instance.
     """
     if name is None:

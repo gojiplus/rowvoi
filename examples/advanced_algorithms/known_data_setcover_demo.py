@@ -233,7 +233,7 @@ def demonstrate_path_planning(df: pd.DataFrame, rows: list[int], dataset_name: s
 def analyze_dataset_properties(df: pd.DataFrame, dataset_name: str):
     """Analyze properties of the dataset that affect set cover performance."""
     print(f"\n📊 Dataset Analysis: {dataset_name}")
-    print(f"   Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+    print(f"   Shape: {df.shape[0]} rows x {df.shape[1]} columns")
     print(f"   Data types: {df.dtypes.value_counts().to_dict()}")
 
     # Column cardinality analysis

@@ -285,7 +285,7 @@ def compare_policies_systematic(df: pd.DataFrame, dataset_name: str):
         return stats
 
     except Exception as e:
-        print(f"   ❌ Evaluation failed: {str(e)}")
+        print(f"   ❌ Evaluation failed: {e!s}")
         return []
 
 

@@ -18,6 +18,27 @@ if TYPE_CHECKING:
     from .ml import RowVoiModel
 
 
+def _per_cost(gain: float, cost: float) -> float:
+    """Gain per unit cost, defined at cost zero.
+
+    A free column that buys something is infinitely good value and should be
+    taken first; a free column that buys nothing is worth nothing. Dividing
+    naively gives `inf` for the first and a `nan` for the second, and a `nan`
+    silently loses every comparison while emitting a numpy warning.
+
+    Args:
+        gain: Information or coverage the column provides.
+        cost: Cost of acquiring it. May be zero or negative.
+
+    Returns:
+        `gain / cost` when cost is positive; otherwise `inf` for a positive
+        gain and 0.0 for none.
+    """
+    if cost > 0:
+        return gain / cost
+    return math.inf if gain > 0 else 0.0
+
+
 class Policy(Protocol):
     """A strategy for picking the next column given the current state."""
 
@@ -29,18 +50,12 @@ class Policy(Protocol):
     ) -> FeatureSuggestion:
         """Suggest the next best column to query.
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The data table
-        state : CandidateState
-            Current disambiguation state
-        candidate_cols : Sequence[ColName], optional
-            Columns to consider. If None, consider all columns
+        Args:
+            df: The data table
+            state: Current disambiguation state
+            candidate_cols: Columns to consider. If None, consider all columns
 
-        Returns
-        -------
-        FeatureSuggestion
+        Returns:
             Recommendation for next column to query
         """
         ...
@@ -52,16 +67,12 @@ class GreedyCoveragePolicy:
 
     Can be used for "next best column" in deterministic mode.
 
-    Attributes
-    ----------
-    costs : Mapping[ColName, float], optional
-        Cost of querying each column
-    objective : str, default "pairs"
-        - "pairs": maximize newly covered pairs
-        - "entropy": maximize entropy reduction
-    weighting : str, default "uniform"
-        - "uniform": all pairs weighted equally
-        - "pair_idf": weight hard-to-separate pairs more
+    Attributes:
+        costs: Cost of querying each column
+        objective: - "pairs": maximize newly covered pairs
+            - "entropy": maximize entropy reduction
+        weighting: - "uniform": all pairs weighted equally
+            - "pair_idf": weight hard-to-separate pairs more
     """
 
     costs: Mapping[ColName, float] | None = None
@@ -130,7 +141,7 @@ class GreedyCoveragePolicy:
 
             if self.objective == "pairs":
                 weighted_gain = sum(pair_weights.get(p, 1.0) for p in newly_covered)
-                score = weighted_gain / cost
+                score = _per_cost(weighted_gain, cost)
             else:  # entropy
                 # Compute entropy reduction
                 # Group candidates by their value in this column
@@ -156,14 +167,11 @@ class GreedyCoveragePolicy:
                     if p_val > 0:
                         # Entropy within this group
                         group_size = len(group_rows)
-                        if group_size > 1:
-                            h_group = math.log2(group_size)
-                        else:
-                            h_group = 0.0
+                        h_group = math.log2(group_size) if group_size > 1 else 0.0
                         h_after += p_val * h_group
 
                 entropy_reduction = h_before - h_after
-                score = entropy_reduction / cost
+                score = _per_cost(entropy_reduction, cost)
 
             if score > best_score:
                 best_col = col
@@ -188,15 +196,11 @@ class GreedyCoveragePolicy:
 class MIPolicy:
     """Policy that uses mutual information from a RowVoiModel.
 
-    Attributes
-    ----------
-    model : RowVoiModel
-        The trained model for computing MI
-    objective : str, default "mi_over_cost"
-        - "mi": raw mutual information
-        - "mi_over_cost": MI divided by feature cost
-    feature_costs : Mapping[ColName, float], optional
-        Cost of querying each feature
+    Attributes:
+        model: The trained model for computing MI
+        objective: - "mi": raw mutual information
+            - "mi_over_cost": MI divided by feature cost
+        feature_costs: Cost of querying each feature
     """
 
     model: "RowVoiModel"
@@ -209,28 +213,43 @@ class MIPolicy:
         state: CandidateState,
         candidate_cols: Sequence[ColName] | None = None,
     ) -> FeatureSuggestion:
-        """Use the model to suggest the next feature."""
-        # Delegate to the model's suggest_next_feature method
+        """Use the model to suggest the next feature.
+
+        The objective and costs are forwarded to the model, so cost affects
+        *which* column is chosen. Rescaling the winner's score afterwards
+        would leave the choice itself made on raw mutual information.
+
+        Args:
+            df: The data table.
+            state: Current disambiguation state.
+            candidate_cols: Columns to consider. If None, consider all columns.
+
+        Returns:
+            Recommendation for the next column. `col` is None when the model
+            has nothing left to suggest.
+        """
+        objective = self.objective
+        costs: dict[ColName, float] | None = None
+
+        if objective == "mi_over_cost":
+            if self.feature_costs is None:
+                # The model rejects mi_over_cost without costs, and with every
+                # column free the two objectives agree anyway.
+                objective = "mi"
+            else:
+                # The model requires a cost for every column it scores, so
+                # default unpriced columns rather than letting it raise.
+                costs = {c: float(self.feature_costs.get(c, 1.0)) for c in df.columns}
+
         suggestion = self.model.suggest_next_feature(
-            df, state, candidate_cols=candidate_cols
+            df,
+            state,
+            candidate_cols=candidate_cols,
+            objective=objective,
+            feature_costs=costs,
         )
-
-        # Adjust score based on objective
-        if self.objective == "mi_over_cost" and self.feature_costs:
-            cost = self.feature_costs.get(suggestion.col, 1.0)
-            if cost > 0:
-                suggestion = FeatureSuggestion(
-                    col=suggestion.col,
-                    score=(
-                        suggestion.expected_voi / cost
-                        if suggestion.expected_voi
-                        else suggestion.score
-                    ),
-                    expected_voi=suggestion.expected_voi,
-                    marginal_cost=cost,
-                    debug=suggestion.debug,
-                )
-
+        if suggestion is None:
+            return FeatureSuggestion(col=None, score=0.0)
         return suggestion
 
 
@@ -241,12 +260,9 @@ class CandidateMIPolicy:
     This policy doesn't require a trained model - it computes MI
     directly from the candidate rows.
 
-    Attributes
-    ----------
-    normalize : bool, default False
-        Whether to normalize MI by maximum entropy
-    costs : Mapping[ColName, float], optional
-        Cost of querying each column
+    Attributes:
+        normalize: Whether to normalize MI by maximum entropy
+        costs: Cost of querying each column
     """
 
     normalize: bool = False
@@ -280,9 +296,9 @@ class CandidateMIPolicy:
         best_mi = 0.0
 
         for col in candidate_cols:
-            mi = self._compute_mi(df, state, col)
+            mi = self.compute_mi(df, state, col)
             cost = self.costs.get(col, 1.0) if self.costs else 1.0
-            score = mi / cost
+            score = _per_cost(mi, cost)
 
             if score > best_score:
                 best_col = col
@@ -298,10 +314,15 @@ class CandidateMIPolicy:
             ),
         )
 
-    def _compute_mi(
+    def compute_mi(
         self, df: pd.DataFrame, state: CandidateState, col: ColName
     ) -> float:
-        """Compute conditional mutual information for a column."""
+        """Compute conditional mutual information I(R; X_col | E) in bits.
+
+        Model-free: groups candidates by their value in `col` and measures how
+        much the posterior's entropy drops in expectation. Public because
+        callers often want the full ranking, not just the argmax.
+        """
         rows = state.candidate_rows
         if len(rows) <= 1:
             return 0.0
@@ -349,10 +370,8 @@ class CandidateMIPolicy:
 class RandomPolicy:
     """Random policy for baseline comparisons.
 
-    Attributes
-    ----------
-    seed : int, optional
-        Random seed for reproducibility
+    Attributes:
+        seed: Random seed for reproducibility
     """
 
     seed: int | None = None
@@ -377,5 +396,7 @@ class RandomPolicy:
         if not candidate_cols:
             return FeatureSuggestion(col=None, score=0.0)
 
-        col = np.random.choice(candidate_cols)
+        # Index rather than np.random.choice, which coerces the column labels
+        # into an array and mangles non-string ones.
+        col = candidate_cols[int(np.random.randint(len(candidate_cols)))]
         return FeatureSuggestion(col=col, score=1.0)
