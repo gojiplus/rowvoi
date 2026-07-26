@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     and is never imported by `rowvoi.rag`.
 - **`rowvoi.setcover`** — `SetCoverProblem`, the weighted set cover engine
   extracted from `KeyProblem`, now usable over any universe.
+- `SolverUnavailableError`, raised when the `ilp` strategy has no usable LP
+  solver.
 - `CandidateState.reweight` for soft evidence: multiplies the posterior by a
   likelihood vector and retains every candidate, so a merely improbable
   observation cannot eliminate the right one.
@@ -34,6 +36,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The `ilp` strategy no longer silently returns a greedy result.** It caught
+  `ImportError` and fell back to greedy when pulp was missing. Greedy is an
+  ln(m) approximation and ILP is exact, so this substituted one algorithm for
+  the other under the name the caller asked for. Two concrete consequences:
+  `test_ilp_algorithm` had a `pytest.skip` that could never fire, so it passed
+  while asserting greedy behaviour and the ILP code was never executed; and
+  `compute_gold_key` could return a greedy key as the "optimal" baseline,
+  making `KeyEvalResult.optimality_gap` wrong — possibly negative, showing a
+  method beating the optimum. `find_key(strategy="ilp")` now raises
+  `SolverUnavailableError`. **This is a behaviour change** for anyone relying
+  on the silent fallback.
+- `compute_gold_key` no longer falls back to greedy either: it tries ILP then
+  exhaustive search and raises if neither exact strategy succeeds. Pass
+  `allow_approximate=True` for the old cascade. `evaluate_keys` needed no
+  change — it already treated a failed gold solve as "no baseline" and
+  reported no gap; that branch was simply never reached.
+- pulp installed but with no runnable CBC previously raised `PulpSolverError`
+  from deep inside `solve()`. The solver is now checked with `available()`
+  first, so both no-solver cases give the same actionable error.
 - `compute_gold_next_column_probabilistic` passed `candidate_features=` to a
   parameter named `candidate_cols` and raised `TypeError` on every call.
 - `MIPolicy` never forwarded its objective or costs to the model. It took the
@@ -76,10 +97,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already returned.
 - Silently swallowed exceptions in `eval.py` are now logged at debug level.
 - The ILP strategy creates variables through `LpProblem.add_variable` where
-  available, which PuLP 4 requires and older PuLP does not have. The
-  `optimization` extra now pins `pulp<4`, because PuLP 4 also drops
-  `PULP_CBC_CMD` in favour of a `COIN_CMD` that needs CBC installed
-  separately -- a breaking change for users that should be made deliberately.
+  available, and probes `COIN_CMD` before the deprecated `PULP_CBC_CMD`, so it
+  works unchanged on PuLP 4 and stops emitting deprecation warnings wherever
+  CBC is reachable.
 
 ### Removed
 

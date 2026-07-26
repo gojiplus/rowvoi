@@ -2,9 +2,28 @@
 
 import pytest
 
-from rowvoi.setcover import SetCoverProblem, coverage_of, solve_set_cover
+from rowvoi.setcover import (
+    SetCoverProblem,
+    SolverUnavailableError,
+    _find_solver,
+    coverage_of,
+    solve_set_cover,
+)
 
 ALL_STRATEGIES = ["greedy", "exact", "ilp", "sa", "ga", "lp", "hybrid"]
+
+
+def skip_without_solver(strategy: str) -> None:
+    """Skip an "ilp" parametrization when no LP solver is installed.
+
+    Previously unnecessary, because _ilp silently returned a greedy result --
+    which is precisely why these tests passed while never running ILP.
+    """
+    if strategy != "ilp":
+        return
+    pulp = pytest.importorskip("pulp")
+    if _find_solver(pulp) is None:
+        pytest.skip("no LP solver available")
 
 
 @pytest.fixture
@@ -65,6 +84,7 @@ class TestStrategies:
 
     @pytest.mark.parametrize("strategy", ALL_STRATEGIES)
     def test_every_strategy_finds_a_valid_cover(self, strategy):
+        skip_without_solver(strategy)
         problem = SetCoverProblem({"a": {1, 2}, "b": {2, 3}, "c": {3, 4}})
         selection = problem.solve(strategy, time_limit=0.5)
         assert problem.is_cover(selection)
@@ -73,6 +93,7 @@ class TestStrategies:
     def test_every_strategy_minimizes_cost_not_cardinality(
         self, strategy, weighted_sets, weighted_costs
     ):
+        skip_without_solver(strategy)
         # The single set "c" covers everything but costs 4; "a"+"b" cost 2.
         # A solver that minimizes the number of sets picks the wrong one.
         problem = SetCoverProblem(weighted_sets, costs=weighted_costs)
@@ -95,6 +116,7 @@ class TestStrategies:
 
     @pytest.mark.parametrize("strategy", ["greedy", "exact", "ilp"])
     def test_epsilon_permits_a_cheaper_partial_cover(self, strategy):
+        skip_without_solver(strategy)
         # "big" covers 3 of 4 elements; "tail" is needed only for the last one.
         problem = SetCoverProblem(
             {"big": {1, 2, 3}, "tail": {4}}, costs={"big": 1.0, "tail": 1.0}
@@ -121,6 +143,73 @@ class TestStrategies:
         selection = problem.solve("ilp", epsilon=1 / 3)
         # The ILP must not count element 3 toward its coverage target
         assert problem.coverage(selection) == pytest.approx(2 / 3)
+
+
+class TestSolverAvailability:
+    """ILP must fail loudly rather than quietly becoming greedy.
+
+    Greedy is an ln(m) approximation and ILP is exact. Returning one where the
+    caller asked for the other is a silent correctness change, and it made
+    `test_ilp_algorithm` pass for years while never running the ILP code.
+    """
+
+    def test_raises_when_pulp_is_missing(self, monkeypatch):
+        # Simulate an environment without the optimization extra.
+        import builtins
+
+        real_import = builtins.__import__
+
+        def no_pulp(name, *args, **kwargs):
+            if name == "pulp":
+                raise ImportError("No module named 'pulp'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", no_pulp)
+
+        problem = SetCoverProblem({"a": {1}, "b": {2}})
+        with pytest.raises(SolverUnavailableError, match="optimization"):
+            problem.solve("ilp")
+
+    def test_raises_when_no_solver_is_available(self, monkeypatch):
+        pulp = pytest.importorskip("pulp")
+        # pulp installed, but nothing it can actually execute. Previously this
+        # surfaced as PulpSolverError from deep inside solve().
+        monkeypatch.setattr(
+            "rowvoi.setcover._find_solver", lambda *a, **k: None, raising=True
+        )
+        assert pulp  # silence the unused-import linter
+
+        problem = SetCoverProblem({"a": {1}, "b": {2}})
+        with pytest.raises(SolverUnavailableError, match="pulp\\[cbc\\]"):
+            problem.solve("ilp")
+
+    def test_prefers_the_non_deprecated_solver(self, monkeypatch):
+        pulp = pytest.importorskip("pulp")
+
+        # Make COIN_CMD look available; the probe should stop there rather
+        # than falling through to the deprecated PULP_CBC_CMD.
+        monkeypatch.setattr(
+            pulp.COIN_CMD, "available", lambda self: "/usr/bin/cbc", raising=False
+        )
+        assert type(_find_solver(pulp)).__name__ == "COIN_CMD"
+
+    def test_falls_through_to_the_bundled_solver(self):
+        pulp = pytest.importorskip("pulp")
+        # On a stock install COIN_CMD.available() is None, so the bundled
+        # PULP_CBC_CMD is what actually gets used.
+        solver = _find_solver(pulp)
+        if solver is None:
+            pytest.skip("no LP solver available")
+        assert solver.available()
+
+    def test_other_strategies_are_unaffected_by_a_missing_solver(self, monkeypatch):
+        # Only "ilp" depends on a solver; the rest must keep working.
+        monkeypatch.setattr(
+            "rowvoi.setcover._find_solver", lambda *a, **k: None, raising=True
+        )
+        problem = SetCoverProblem({"a": {1}, "b": {2}})
+        for strategy in ("greedy", "exact", "sa", "ga", "lp", "hybrid"):
+            assert problem.is_cover(problem.solve(strategy, time_limit=0.2))
 
 
 class TestCoverPath:

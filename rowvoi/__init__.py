@@ -47,6 +47,9 @@ from .prob_keys import find_key_probabilistic, plan_key_path_probabilistic
 
 # Interactive sessions
 from .session import DisambiguationSession, StopRules
+
+# Set cover engine
+from .setcover import SolverUnavailableError
 from .types import ColName, RowIndex
 
 try:
@@ -68,6 +71,7 @@ __all__ = [
     "KeyPath",
     "find_key",
     "plan_key_path",
+    "SolverUnavailableError",
     # Probabilistic methods
     "find_key_probabilistic",
     "plan_key_path_probabilistic",

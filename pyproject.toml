@@ -52,10 +52,7 @@ Documentation = "https://gojiplus.github.io/rowvoi/"
 
 [project.optional-dependencies]
 optimization = [
-    # PuLP 4 removes PULP_CBC_CMD in favour of COIN_CMD, which needs an
-    # externally installed CBC rather than the bundled one. Pinned below 4
-    # until that migration is made deliberately.
-    "pulp>=2.7.0,<4",
+    "pulp>=2.7.0",
 ]
 claude = [
     "anthropic>=0.116.0",

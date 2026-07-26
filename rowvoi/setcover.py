@@ -6,6 +6,7 @@ claims. The seven strategies and the greedy path planner are common to both.
 """
 
 import itertools
+import logging
 import math
 import random
 import time
@@ -18,6 +19,54 @@ Element = Hashable
 SetName = Hashable
 
 Strategy = Literal["greedy", "exact", "ilp", "sa", "ga", "lp", "hybrid"]
+
+logger = logging.getLogger(__name__)
+
+# Solvers to try, in order. COIN_CMD is not deprecated but finds CBC only on
+# PATH (or via the `pulp[cbc]` extra); PULP_CBC_CMD ships a bundled CBC but is
+# removed in PuLP 4, hence the getattr lookup rather than direct attribute
+# access.
+_SOLVER_NAMES = ("COIN_CMD", "PULP_CBC_CMD")
+
+
+class SolverUnavailableError(RuntimeError):
+    """No linear programming solver is usable.
+
+    Raised rather than quietly substituting an approximate strategy: greedy is
+    an ln(m) approximation and ILP is exact, so returning one where the caller
+    asked for the other is a silent correctness change.
+    """
+
+
+def _find_solver(pulp, *, time_limit: float | None = None):
+    """Return the first available pulp solver, or None if there is none.
+
+    Args:
+        pulp: The imported ``pulp`` module.
+        time_limit: Seconds to allow the solver, passed through when set.
+
+    Returns:
+        A configured solver instance, or None when none is usable.
+    """
+    kwargs: dict[str, Any] = {"msg": False}
+    if time_limit:
+        kwargs["timeLimit"] = time_limit
+
+    for name in _SOLVER_NAMES:
+        cls = getattr(pulp, name, None)
+        if cls is None:
+            continue
+        try:
+            solver = cls(**kwargs)
+        except Exception:  # pragma: no cover - solver refuses construction
+            logger.debug("solver %s could not be constructed", name, exc_info=True)
+            continue
+        # `available()` returns a path or False/None, not a strict bool. A
+        # stock install has COIN_CMD unavailable, which is exactly the case
+        # that otherwise surfaces as PulpSolverError deep inside solve().
+        if solver.available():
+            return solver
+    return None
 
 
 @dataclass
@@ -278,15 +327,38 @@ class SetCoverProblem:
         return best if best is not None else self._greedy(epsilon)
 
     def _ilp(self, epsilon: float, time_limit: float | None) -> list[SetName]:
-        """Integer Linear Programming solution (requires pulp)."""
+        """Integer Linear Programming solution.
+
+        Args:
+            epsilon: Fraction of the universe permitted to remain uncovered.
+            time_limit: Maximum seconds to allow the solver.
+
+        Returns:
+            A minimum-cost selection.
+
+        Raises:
+            SolverUnavailableError: If pulp is not installed, or no LP solver
+                is usable. Deliberately not downgraded to greedy: ILP is exact
+                and greedy is an approximation, so silently swapping them would
+                make `optimality_gap` in the evaluation results meaningless.
+        """
         try:
             import pulp
-        except ImportError:
-            # Fall back to greedy if pulp not available
-            return self._greedy(epsilon)
+        except ImportError as exc:
+            raise SolverUnavailableError(
+                "The 'ilp' strategy needs pulp, which is not installed. "
+                'Install it with: pip install "rowvoi[optimization]"'
+            ) from exc
 
         if not self.universe:
             return []
+
+        solver = _find_solver(pulp, time_limit=time_limit)
+        if solver is None:
+            raise SolverUnavailableError(
+                "pulp is installed but no LP solver is available. Install CBC "
+                'with: pip install "pulp[cbc]"'
+            )
 
         prob = pulp.LpProblem("SetCover", pulp.LpMinimize)
 
@@ -331,13 +403,7 @@ class SetCoverProblem:
                     prob += y[element] == 0
             prob += pulp.lpSum(y[element] for element in elements) >= target
 
-        # Solve. PULP_CBC_CMD uses PuLP's bundled CBC; COIN_CMD (its PuLP 4
-        # replacement) requires CBC installed separately, so the switch is a
-        # breaking change for users and is deferred -- see the pulp<4 pin.
-        if time_limit:
-            prob.solve(pulp.PULP_CBC_CMD(timeLimit=time_limit, msg=False))
-        else:
-            prob.solve(pulp.PULP_CBC_CMD(msg=False))
+        prob.solve(solver)
 
         if prob.status == pulp.LpStatusOptimal:
             # An unset variable reads back as None rather than 0.0.

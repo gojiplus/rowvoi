@@ -19,7 +19,7 @@ from .core import CandidateState, ColName, RowIndex
 from .keys import KeyProblem, find_key
 from .policies import Policy
 from .session import DisambiguationSession, StopRules
-from .setcover import Strategy
+from .setcover import SolverUnavailableError, Strategy
 
 if TYPE_CHECKING:
     from .ml import RowVoiModel
@@ -73,8 +73,18 @@ def compute_gold_key(
     costs: Mapping[ColName, float] | None = None,
     epsilon_pairs: float = 0.0,
     time_limit: float = 10.0,
+    allow_approximate: bool = False,
 ) -> list[ColName]:
-    """Compute the optimal deterministic key using exact or ILP solver.
+    """Compute the provably optimal deterministic key.
+
+    Tries ILP, then exhaustive search. Both are exact, so whichever answers
+    first is the optimum.
+
+    This deliberately does *not* fall back to greedy. Callers use the result as
+    the baseline for `optimality_gap`, and a greedy baseline makes that number
+    wrong -- it can even go negative, showing a method beating the "optimum".
+    Failing is the honest outcome; `evaluate_keys` already treats a failed gold
+    solve as "no baseline" and reports no gap.
 
     Args:
         df: The data table
@@ -82,13 +92,21 @@ def compute_gold_key(
         columns: Columns to consider
         costs: Cost of each column
         epsilon_pairs: Tolerance for unresolved pairs
-        time_limit: Maximum time for exact solution
+        time_limit: Maximum time for each exact strategy
+        allow_approximate: Permit a greedy result when no exact one is
+            obtainable. The return value is then not necessarily optimal, so
+            do not use it as an optimality baseline.
 
     Returns:
-        Optimal key columns
+        Optimal key columns, or an approximate key when `allow_approximate`
+        is set and no exact strategy succeeded.
+
+    Raises:
+        SolverUnavailableError: If no exact strategy could produce a key and
+            `allow_approximate` is False.
     """
-    # Try ILP first (if available), then exact, then fallback to greedy
-    strategies: list[Strategy] = ["ilp", "exact", "greedy"]
+    # Both of these are exact; greedy is not, and is only reachable on request.
+    strategies: list[Strategy] = ["ilp", "exact"]
 
     for strategy in strategies:
         try:
@@ -99,15 +117,24 @@ def compute_gold_key(
                 costs=costs,
                 strategy=strategy,
                 epsilon_pairs=epsilon_pairs,
-                time_limit=time_limit if strategy != "greedy" else None,
+                time_limit=time_limit,
             )
         except Exception:
-            # Each strategy is best-effort: ILP needs pulp, exact can time out.
-            # Falling through to the next one is the point, but stay diagnosable.
+            # ILP needs a solver, exhaustive search can time out. Trying the
+            # next exact strategy is the point, but stay diagnosable.
             logger.debug("gold key strategy %r failed, trying next", strategy)
             continue
 
-    # Final fallback
+    if not allow_approximate:
+        raise SolverUnavailableError(
+            "No exact strategy could compute a gold-standard key: ILP needs a "
+            'solver (pip install "rowvoi[optimization]") and exhaustive '
+            f"search did not finish within time_limit={time_limit}s. Pass "
+            "allow_approximate=True to accept a greedy key, but note it is not "
+            "a valid optimality baseline."
+        )
+
+    logger.debug("falling back to an approximate gold key for %d rows", len(rows))
     return find_key(
         df,
         rows,

@@ -69,6 +69,15 @@ def test_self_contained_blocks_execute():
         try:
             with redirect_stdout(io.StringIO()):
                 exec(block, namespace)  # noqa: S102 - executing our own README
+        except ImportError as exc:
+            # An optional extra that is not installed. The block is correct;
+            # this environment just cannot run it.
+            if "rowvoi[" in str(exc):
+                skipped += 1
+                continue
+            raise AssertionError(
+                f"README block failed to import:\n{textwrap.indent(block, '    ')}"
+            ) from exc
         except NameError as exc:
             missing = str(exc).split("'")[1] if "'" in str(exc) else ""
             if missing in PLACEHOLDERS:

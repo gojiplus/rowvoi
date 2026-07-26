@@ -66,6 +66,18 @@ your PR; the release step renames that heading.
 shim pins `python-versions` to `["3.11", "3.12", "3.13"]`; the canon default
 is `["3.11", "3.14"]`. If you re-run either command, check that pin survived.
 
+**The `ilp` strategy raises rather than degrading.** `find_key(strategy="ilp")`
+raises `SolverUnavailableError` when pulp or a CBC binary is missing, instead of
+quietly returning a greedy key. That is deliberate: greedy is an approximation
+and ILP is exact, and the silent substitution previously made a test vacuous and
+could corrupt `optimality_gap`. Tests that exercise ILP must guard with
+`skip_without_solver` (see `tests/test_setcover.py`) so they skip rather than
+fail on a machine without a solver.
+
+**Once the pulp floor can be raised**, change the `optimization` extra to
+`pulp[cbc]`, which ships CBC as a wheel. It does not exist at the current
+`>=2.7.0` floor, which is why the code probes for a solver instead.
+
 **pydoclint does not run in CI.** The canon workflow guards it behind
 `if [ -d src ]`, and rowvoi uses a flat layout. `make ci` runs it locally, so
 please don't skip that step.
