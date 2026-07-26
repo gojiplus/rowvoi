@@ -58,12 +58,14 @@ import pandas as pd
 from rowvoi import find_key, GreedyCoveragePolicy, DisambiguationSession
 
 # Your data
-df = pd.DataFrame({
-    'name': ['Alice', 'Alice', 'Bob', 'Bob'],
-    'age': [25, 25, 30, 30], 
-    'city': ['NYC', 'LA', 'NYC', 'SF'],
-    'email': ['a1@x.com', 'a2@x.com', 'b1@x.com', 'b2@x.com']
-})
+df = pd.DataFrame(
+    {
+        "name": ["Alice", "Alice", "Bob", "Bob"],
+        "age": [25, 25, 30, 30],
+        "city": ["NYC", "LA", "NYC", "SF"],
+        "email": ["a1@x.com", "a2@x.com", "b1@x.com", "b2@x.com"],
+    }
+)
 
 # Find minimal distinguishing columns
 rows = [0, 1, 2, 3]
@@ -77,7 +79,7 @@ suggestion = session.next_question()
 print(f"Ask about: {suggestion.col}")  # -> 'city'
 
 # Observe an answer and update
-session.observe('city', 'NYC')
+session.observe("city", "NYC")
 print(f"Remaining candidates: {session.state.candidate_rows}")  # -> [0]
 ```
 
@@ -94,18 +96,18 @@ from rowvoi import CandidateState, FeatureSuggestion
 
 # Track disambiguation state
 state = CandidateState(
-    candidate_rows=[0, 1, 2],           # Possible rows
-    posterior=np.array([0.5, 0.3, 0.2]), # Probabilities  
-    observed_cols={'name'},              # Asked columns
-    observed_values={'name': 'Alice'}    # Observed values
+    candidate_rows=[0, 1, 2],  # Possible rows
+    posterior=np.array([0.5, 0.3, 0.2]),  # Probabilities
+    observed_cols={"name"},  # Asked columns
+    observed_values={"name": "Alice"},  # Observed values
 )
 
 # Column recommendation
 suggestion = FeatureSuggestion(
-    col='age',                    # Recommended column
-    score=1.2,                   # Selection score
-    expected_voi=0.8,           # Expected information gain
-    marginal_cost=2.0           # Query cost
+    col="age",  # Recommended column
+    score=1.2,  # Selection score
+    expected_voi=0.8,  # Expected information gain
+    marginal_cost=2.0,  # Query cost
 )
 ```
 
@@ -119,15 +121,15 @@ minimizes column count; supply costs and it minimizes effort instead.
 from rowvoi import KeyProblem, find_key, plan_key_path
 
 # Find minimal key
-key = find_key(df, rows=[0,1,2], strategy="greedy")
+key = find_key(df, rows=[0, 1, 2], strategy="greedy")
 
-# Different algorithms  
-key_exact = find_key(df, rows, strategy="exact")       # Optimal (slow)
-key_sa = find_key(df, rows, strategy="sa")             # Simulated annealing
-key_ga = find_key(df, rows, strategy="ga")             # Genetic algorithm
+# Different algorithms
+key_exact = find_key(df, rows, strategy="exact")  # Optimal (slow)
+key_sa = find_key(df, rows, strategy="sa")  # Simulated annealing
+key_ga = find_key(df, rows, strategy="ga")  # Genetic algorithm
 
 # Plan acquisition sequence
-path = plan_key_path(df, rows, costs={'name': 1, 'email': 5})
+path = plan_key_path(df, rows, costs={"name": 1, "email": 5})
 print(path.columns())  # -> ['name', 'age', ...]
 ```
 
@@ -143,17 +145,18 @@ from rowvoi import GreedyCoveragePolicy, CandidateMIPolicy, MIPolicy, RandomPoli
 
 # Greedy pairwise coverage
 policy = GreedyCoveragePolicy(
-    costs={'email': 5.0, 'name': 1.0},
-    objective='entropy'  # or 'pairs'
+    costs={"email": 5.0, "name": 1.0},
+    objective="entropy",  # or 'pairs'
 )
 
 # Mutual information on candidates only
 policy = CandidateMIPolicy(normalize=True)
 
-# Model-based mutual information  
+# Model-based mutual information
 from rowvoi import RowVoiModel
+
 model = RowVoiModel(noise=0.1).fit(df)
-policy = MIPolicy(model=model, objective='mi_over_cost')
+policy = MIPolicy(model=model, objective="mi_over_cost")
 
 # Random baseline
 policy = RandomPolicy(seed=42)
@@ -165,14 +168,11 @@ policy = RandomPolicy(seed=42)
 from rowvoi import DisambiguationSession, StopRules
 
 # Create session
-session = DisambiguationSession(
-    df, [0,1,2,3], 
-    policy=GreedyCoveragePolicy()
-)
+session = DisambiguationSession(df, [0, 1, 2, 3], policy=GreedyCoveragePolicy())
 
 # Manual interaction
 suggestion = session.next_question()
-step = session.observe('age', 25)
+step = session.observe("age", 25)
 
 # Automated session
 stop = StopRules(max_steps=5, cost_budget=10.0, target_unique=True)
@@ -194,16 +194,16 @@ candidate_sets = sample_candidate_sets(df, subset_size=4, n_samples=20)
 
 # Compare key-finding methods
 methods = {
-    'greedy': lambda df, rows: find_key(df, rows, strategy='greedy'),
-    'exact': lambda df, rows: find_key(df, rows, strategy='exact')
+    "greedy": lambda df, rows: find_key(df, rows, strategy="greedy"),
+    "exact": lambda df, rows: find_key(df, rows, strategy="exact"),
 }
 key_results = evaluate_keys(df, candidate_sets, methods)
 
-# Compare interactive policies  
+# Compare interactive policies
 policies = {
-    'greedy': GreedyCoveragePolicy(),
-    'mi': CandidateMIPolicy(),
-    'random': RandomPolicy(seed=42)
+    "greedy": GreedyCoveragePolicy(),
+    "mi": CandidateMIPolicy(),
+    "random": RandomPolicy(seed=42),
 }
 policy_stats = evaluate_policies(df, candidate_sets, policies)
 for stat in policy_stats:
@@ -235,23 +235,23 @@ from rowvoi.rag import Chunk, select_context, plan_context_path
 chunks = [
     Chunk("doc1#p2", "The Pro plan costs $40/seat/mo.", tokens=180),
     Chunk("doc2#p1", "v4.2 shipped March 3rd, 2026.", tokens=150),
-    Chunk("faq#p1",  "Pricing, releases, and SSO.",    tokens=1550),
+    Chunk("faq#p1", "Pricing, releases, and SSO.", tokens=1550),
 ]
 claims = ["pro_plan_price", "v42_release_date"]
-support = {                      # a SupportJudge fills this in; see below
-    "pro_plan_price":  {"doc1#p2", "faq#p1"},
+support = {  # a SupportJudge fills this in; see below
+    "pro_plan_price": {"doc1#p2", "faq#p1"},
     "v42_release_date": {"doc2#p1", "faq#p1"},
 }
 
 selection = select_context(chunks, claims, support)
-selection.chunks        # ['doc2#p1', 'doc1#p2'] — 330 tokens, not 1550
-selection.coverage      # 1.0
+selection.chunks  # ['doc2#p1', 'doc1#p2'] — 330 tokens, not 1550
+selection.coverage  # 1.0
 selection.missing_claims  # set() — a claim nothing supports shows up here
 
 # Or fill a context window and see what the last token bought
 path = plan_context_path(chunks, claims, support)
-path.prefix_for_budget(200)   # ['doc2#p1']
-path.coverage_curve()         # [(150, 0.5), (330, 1.0)]
+path.prefix_for_budget(200)  # ['doc2#p1']
+path.coverage_curve()  # [(150, 0.5), (330, 1.0)]
 ```
 
 `epsilon_claims=0.05` lets you trade a small fraction of claims for a much
@@ -267,10 +267,10 @@ splits them best per unit of user effort:
 from rowvoi import CandidateState
 from rowvoi.rag import next_question, observe_answer, question_values
 
-answers = {                      # an AnswerPredictor fills this in
-    "Which deployment?":  ["cloud", "cloud", "self", "self"],
-    "Which version?":     ["v4",    "v3",    "v4",   "v3"],
-    "Are you an admin?":  ["yes",   "yes",   "yes",  "yes"],
+answers = {  # an AnswerPredictor fills this in
+    "Which deployment?": ["cloud", "cloud", "self", "self"],
+    "Which version?": ["v4", "v3", "v4", "v3"],
+    "Are you an admin?": ["yes", "yes", "yes", "yes"],
 }
 
 # bits of uncertainty each question resolves, out of 2.0 for four candidates
@@ -281,7 +281,7 @@ next_question(answers, costs={"Which version?": 5.0}).col  # 'Which deployment?'
 
 state = CandidateState.uniform(range(4))
 state = observe_answer(state, answers, "Which deployment?", "self", noise=0.02)
-state.posterior            # [0.01, 0.01, 0.49, 0.49]
+state.posterior  # [0.01, 0.01, 0.49, 0.49]
 ```
 
 "Are you an admin?" scores exactly 0 bits — every candidate answers it the
@@ -298,10 +298,10 @@ from rowvoi import StopRules
 from rowvoi.rag import RetrievalSession
 
 session = RetrievalSession(
-    outcomes,                     # candidates x probes matrix of predicted results
-    runner=my_backend,            # anything with .run(probe)
-    prior=retrieval_scores,       # retrieval scores become the prior
-    costs={"rerank": 12.0},       # expensive probes must earn their place
+    outcomes,  # candidates x probes matrix of predicted results
+    runner=my_backend,  # anything with .run(probe)
+    prior=retrieval_scores,  # retrieval scores become the prior
+    costs={"rerank": 12.0},  # expensive probes must earn their place
     noise=0.05,
 )
 session.run(StopRules(epsilon_posterior=0.05))
@@ -324,7 +324,8 @@ from rowvoi.rag import extract_and_select
 from rowvoi.rag.claude import ClaudeClaimExtractor, ClaudeSupportJudge
 
 selection = extract_and_select(
-    query, chunks,
+    query,
+    chunks,
     extractor=ClaudeClaimExtractor(),
     judge=ClaudeSupportJudge(),
 )
@@ -350,10 +351,10 @@ from rowvoi import DisambiguationSession, GreedyCoveragePolicy, plan_key_path
 
 # Define column costs
 costs = {
-    'name': 1.0,      # Cheap: already have
-    'age': 2.0,       # Moderate: need to ask  
-    'email': 10.0,    # Expensive: need verification
-    'ssn': 50.0       # Very expensive: sensitive
+    "name": 1.0,  # Cheap: already have
+    "age": 2.0,  # Moderate: need to ask
+    "email": 10.0,  # Expensive: need verification
+    "ssn": 50.0,  # Very expensive: sensitive
 }
 
 policy = GreedyCoveragePolicy(costs=costs)
@@ -371,8 +372,8 @@ from rowvoi import MIPolicy, RowVoiModel
 
 # Train on historical data
 model = RowVoiModel(
-    noise=0.05,           # Account for measurement noise
-    normalize_cols=True   # Normalize feature distributions
+    noise=0.05,  # Account for measurement noise
+    normalize_cols=True,  # Normalize feature distributions
 ).fit(df)
 
 # Use for adaptive selection
@@ -407,13 +408,15 @@ import pandas as pd
 from rowvoi import find_key, GreedyCoveragePolicy, DisambiguationSession
 
 # Customer database with potential duplicates
-customers = pd.DataFrame({
-    'first_name': ['John', 'John', 'Jane', 'Jane'],
-    'last_name': ['Smith', 'Smith', 'Doe', 'Smith'], 
-    'email': ['j1@ex.com', 'j2@ex.com', 'jane@ex.com', 'j3@ex.com'],
-    'phone': ['555-0101', '555-0102', '555-0201', '555-0301'],
-    'zip_code': ['10001', '10002', '10001', '10001']
-})
+customers = pd.DataFrame(
+    {
+        "first_name": ["John", "John", "Jane", "Jane"],
+        "last_name": ["Smith", "Smith", "Doe", "Smith"],
+        "email": ["j1@ex.com", "j2@ex.com", "jane@ex.com", "j3@ex.com"],
+        "phone": ["555-0101", "555-0102", "555-0201", "555-0301"],
+        "zip_code": ["10001", "10002", "10001", "10001"],
+    }
+)
 
 # Find minimal fields for disambiguation
 duplicates = [0, 1]  # Two "John Smith" records
@@ -421,9 +424,11 @@ key = find_key(customers, duplicates)
 print(f"Minimal distinguishing fields: {key}")
 
 # Interactive disambiguation with costs
-costs = {'email': 1, 'phone': 2, 'zip_code': 1, 'first_name': 0, 'last_name': 0}
-policy = GreedyCoveragePolicy(costs=costs, objective='entropy')
-session = DisambiguationSession(customers, duplicates, policy=policy, feature_costs=costs)
+costs = {"email": 1, "phone": 2, "zip_code": 1, "first_name": 0, "last_name": 0}
+policy = GreedyCoveragePolicy(costs=costs, objective="entropy")
+session = DisambiguationSession(
+    customers, duplicates, policy=policy, feature_costs=costs
+)
 
 # Simulate resolving the duplicate
 suggestion = session.next_question()
@@ -446,18 +451,20 @@ from rowvoi import (
 )
 
 # Survey response data
-survey = pd.DataFrame({
-    'age_group': ['18-25', '26-35', '18-25', '36-45', '26-35'],
-    'income': ['<50k', '50-100k', '<50k', '>100k', '50-100k'],
-    'education': ['HS', 'College', 'HS', 'Graduate', 'College'],
-    'location': ['Urban', 'Suburban', 'Rural', 'Urban', 'Suburban']
-})
+survey = pd.DataFrame(
+    {
+        "age_group": ["18-25", "26-35", "18-25", "36-45", "26-35"],
+        "income": ["<50k", "50-100k", "<50k", ">100k", "50-100k"],
+        "education": ["HS", "College", "HS", "Graduate", "College"],
+        "location": ["Urban", "Suburban", "Rural", "Urban", "Suburban"],
+    }
+)
 
 # Compare question-asking strategies
 policies = {
-    'coverage': GreedyCoveragePolicy(objective='entropy'),
-    'mutual_info': CandidateMIPolicy(normalize=True),
-    'random': RandomPolicy(seed=42)
+    "coverage": GreedyCoveragePolicy(objective="entropy"),
+    "mutual_info": CandidateMIPolicy(normalize=True),
+    "random": RandomPolicy(seed=42),
 }
 
 # Test on random respondent groups
@@ -466,8 +473,10 @@ stop_rules = StopRules(max_steps=3, target_unique=True)
 
 stats = evaluate_policies(survey, candidate_sets, policies, stop=stop_rules)
 for stat in stats:
-    print(f"{stat.name}: {stat.mean_steps:.1f} questions, "
-          f"{stat.success_rate:.0%} identification rate")
+    print(
+        f"{stat.name}: {stat.mean_steps:.1f} questions, "
+        f"{stat.success_rate:.0%} identification rate"
+    )
 ```
 
 ## 🧪 Algorithm Details
@@ -546,10 +555,10 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## 📚 Citation
 
 ```bibtex
-@software{sood2025rowvoi,
+@software{sood2026rowvoi,
   author       = {Sood, Gaurav},
-  title        = {RowVoi: Interactive Row Disambiguation with Value-of-Information},
-  year         = {2025},
+  title        = {RowVoi: Minimal keys and row-wise value-of-information for disambiguating tabular records},
+  year         = {2026},
   publisher    = {GitHub},
   url          = {https://github.com/gojiplus/rowvoi},
   version      = {0.3.0}

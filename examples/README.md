@@ -86,7 +86,7 @@ suggestion = session.next_question()  # What to ask next?
 ### **Cost-Aware Selection**
 Balance accuracy vs. expense when some fields cost more to verify.
 ```python
-costs = {'email': 1.0, 'address': 5.0, 'income': 10.0}
+costs = {"email": 1.0, "address": 5.0, "income": 10.0}
 key = find_key(df, rows, costs=costs)  # Chooses cost-effective fields
 ```
 

@@ -290,12 +290,19 @@ class SetCoverProblem:
 
         prob = pulp.LpProblem("SetCover", pulp.LpMinimize)
 
+        # PuLP 4 moves variable creation onto the problem and deprecates
+        # constructing LpVariable directly. Prefer the new call where it
+        # exists so we neither warn on new PuLP nor break on the >=2.7 floor.
+        add_variable = getattr(prob, "add_variable", None)
+
+        def _binary(varname: str):
+            if add_variable is not None:
+                return add_variable(varname, cat="Binary")
+            return pulp.LpVariable(varname, cat="Binary")  # pragma: no cover
+
         # Decision variables: x[name] = 1 if that set is selected. Index-based
         # variable names keep pulp happy with arbitrary hashable set names.
-        x = {
-            name: pulp.LpVariable(f"x_{i}", cat="Binary")
-            for i, name in enumerate(self.names)
-        }
+        x = {name: _binary(f"x_{i}") for i, name in enumerate(self.names)}
 
         # Objective: minimize total cost
         prob += pulp.lpSum(x[name] * self.cost(name) for name in self.names)
@@ -314,10 +321,7 @@ class SetCoverProblem:
         else:
             # Relaxed: count covered elements
             target = len(self.universe) * (1 - epsilon)
-            y = {
-                element: pulp.LpVariable(f"y_{i}", cat="Binary")
-                for i, element in enumerate(elements)
-            }
+            y = {element: _binary(f"y_{i}") for i, element in enumerate(elements)}
             for element in elements:
                 if covering[element]:
                     prob += y[element] <= pulp.lpSum(
@@ -327,7 +331,9 @@ class SetCoverProblem:
                     prob += y[element] == 0
             prob += pulp.lpSum(y[element] for element in elements) >= target
 
-        # Solve
+        # Solve. PULP_CBC_CMD uses PuLP's bundled CBC; COIN_CMD (its PuLP 4
+        # replacement) requires CBC installed separately, so the switch is a
+        # breaking change for users and is deferred -- see the pulp<4 pin.
         if time_limit:
             prob.solve(pulp.PULP_CBC_CMD(timeLimit=time_limit, msg=False))
         else:
