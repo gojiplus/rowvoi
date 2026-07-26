@@ -540,7 +540,9 @@ class RowVoiModel:
             state.posterior = new_posterior
             # Update candidate_rows list to those with nonzero posterior
             nonzero_indices = np.where(state.posterior > 0.0)[0]
-            state.candidate_rows = [state.candidate_rows[i] for i in nonzero_indices]
+            state.candidate_rows = [
+                state.candidate_rows[int(i)] for i in nonzero_indices
+            ]
             state.posterior = state.posterior[nonzero_indices]
             # Append suggestion to history
             history.append(suggestion)

@@ -94,12 +94,12 @@ convention = "google"
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
+# Deliberately no --cov here: the wheel smoke test installs the built wheel
+# into a clean venv with pytest but no pytest-cov, and unknown arguments abort
+# the run. Ask for coverage explicitly instead (see `make test-cov`).
 addopts = [
     "-ra",
     "--strict-markers",
-    "--cov=rowvoi",
-    "--cov-report=term-missing",
-    "--cov-report=html",
 ]
 
 [tool.coverage.run]
