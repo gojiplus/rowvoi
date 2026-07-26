@@ -156,10 +156,7 @@ class GreedyCoveragePolicy:
                     if p_val > 0:
                         # Entropy within this group
                         group_size = len(group_rows)
-                        if group_size > 1:
-                            h_group = math.log2(group_size)
-                        else:
-                            h_group = 0.0
+                        h_group = math.log2(group_size) if group_size > 1 else 0.0
                         h_after += p_val * h_group
 
                 entropy_reduction = h_before - h_after
@@ -209,28 +206,43 @@ class MIPolicy:
         state: CandidateState,
         candidate_cols: Sequence[ColName] | None = None,
     ) -> FeatureSuggestion:
-        """Use the model to suggest the next feature."""
-        # Delegate to the model's suggest_next_feature method
+        """Use the model to suggest the next feature.
+
+        The objective and costs are forwarded to the model, so cost affects
+        *which* column is chosen. Rescaling the winner's score afterwards
+        would leave the choice itself made on raw mutual information.
+
+        Args:
+            df: The data table.
+            state: Current disambiguation state.
+            candidate_cols: Columns to consider. If None, consider all columns.
+
+        Returns:
+            Recommendation for the next column. `col` is None when the model
+            has nothing left to suggest.
+        """
+        objective = self.objective
+        costs: dict[ColName, float] | None = None
+
+        if objective == "mi_over_cost":
+            if self.feature_costs is None:
+                # The model rejects mi_over_cost without costs, and with every
+                # column free the two objectives agree anyway.
+                objective = "mi"
+            else:
+                # The model requires a cost for every column it scores, so
+                # default unpriced columns rather than letting it raise.
+                costs = {c: float(self.feature_costs.get(c, 1.0)) for c in df.columns}
+
         suggestion = self.model.suggest_next_feature(
-            df, state, candidate_cols=candidate_cols
+            df,
+            state,
+            candidate_cols=candidate_cols,
+            objective=objective,
+            feature_costs=costs,
         )
-
-        # Adjust score based on objective
-        if self.objective == "mi_over_cost" and self.feature_costs:
-            cost = self.feature_costs.get(suggestion.col, 1.0)
-            if cost > 0:
-                suggestion = FeatureSuggestion(
-                    col=suggestion.col,
-                    score=(
-                        suggestion.expected_voi / cost
-                        if suggestion.expected_voi
-                        else suggestion.score
-                    ),
-                    expected_voi=suggestion.expected_voi,
-                    marginal_cost=cost,
-                    debug=suggestion.debug,
-                )
-
+        if suggestion is None:
+            return FeatureSuggestion(col=None, score=0.0)
         return suggestion
 
 
@@ -382,5 +394,7 @@ class RandomPolicy:
         if not candidate_cols:
             return FeatureSuggestion(col=None, score=0.0)
 
-        col = np.random.choice(candidate_cols)
+        # Index rather than np.random.choice, which coerces the column labels
+        # into an array and mangles non-string ones.
+        col = candidate_cols[int(np.random.randint(len(candidate_cols)))]
         return FeatureSuggestion(col=col, score=1.0)

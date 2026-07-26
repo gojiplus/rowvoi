@@ -223,7 +223,7 @@ for target in (0.85, 0.95):
     print(f"\n--- stop at {target:.0%} confidence ---")
     for step in history:
         print(
-            f"  {step.probe:22s} -> {str(step.outcome):5s}  "
+            f"  {step.probe:22s} -> {step.outcome!s:5s}  "
             f"expected {step.expected_voi:4.2f} bits, "
             f"realized {step.realized_gain:4.2f}, "
             f"spent {step.cumulative_cost:4.1f}"

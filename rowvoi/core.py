@@ -80,8 +80,7 @@ class CandidateState:
     def unique_row(self) -> RowIndex | None:
         """Return the most probable row if unique, else None."""
         if self.is_unique and len(self.candidate_rows) > 0:
-            idx = np.argmax(self.posterior)
-            return self.candidate_rows[idx]
+            return self.candidate_rows[int(np.argmax(self.posterior))]
         return None
 
     @classmethod
@@ -258,7 +257,7 @@ class FeatureSuggestion:
         Additional debugging information
     """
 
-    col: ColName
+    col: ColName | None
     score: float
     expected_voi: float | None = None
     marginal_cost: float | None = None

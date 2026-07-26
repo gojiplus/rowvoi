@@ -8,8 +8,8 @@ The rowvoi package provides tools for row disambiguation in tabular data:
 - Comprehensive evaluation tools
 """
 
+import importlib.metadata
 import logging
-from importlib import metadata
 
 # Core types and data structures
 from .core import CandidateState, FeatureSuggestion
@@ -50,10 +50,12 @@ from .session import DisambiguationSession, StopRules
 from .types import ColName, RowIndex
 
 try:
-    __version__ = metadata.version("rowvoi")
-except metadata.PackageNotFoundError:
-    # Fallback for development installs
-    __version__ = "0.2.0"
+    __version__ = importlib.metadata.version("rowvoi")
+except importlib.metadata.PackageNotFoundError:  # pragma: no cover
+    # The version is derived from the git tag at build time, so an uninstalled
+    # source tree has no metadata to read. Never hardcode a number here: it
+    # would silently disagree with the tag.
+    __version__ = "0+unknown"
 
 __all__ = [
     # Core types

@@ -360,7 +360,8 @@ class SetCoverProblem:
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
         if prob.status == pulp.LpStatusOptimal:
-            return [name for name in self.names if x[name].value() > 0.5]
+            # An unset variable reads back as None rather than 0.0.
+            return [name for name in self.names if (x[name].value() or 0.0) > 0.5]
         else:
             return self._greedy(epsilon)
 

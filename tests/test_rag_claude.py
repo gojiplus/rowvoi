@@ -13,14 +13,14 @@ import pytest
 
 pytest.importorskip("anthropic", reason="needs the 'claude' extra")
 
-from rowvoi.rag.claude import (  # noqa: E402
+from rowvoi.rag.claude import (
     DEFAULT_MODEL,
     ClaudeAnswerPredictor,
     ClaudeClaimExtractor,
     ClaudeQuestionGenerator,
     ClaudeSupportJudge,
 )
-from rowvoi.rag.protocols import (  # noqa: E402
+from rowvoi.rag.protocols import (
     AnswerPredictor,
     ClaimExtractor,
     QuestionGenerator,
@@ -292,7 +292,7 @@ class TestFailureModes:
             category: str = "cyber"
 
         client = StubClient(blocks=[], stop_reason="refusal", stop_details=Details())
-        with pytest.raises(RuntimeError, match="declined.*cyber"):
+        with pytest.raises(RuntimeError, match=r"declined.*cyber"):
             ClaudeClaimExtractor(client=client).extract("q")
 
     def test_missing_text_block_mentions_max_tokens(self):

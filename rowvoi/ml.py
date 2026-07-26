@@ -1,4 +1,4 @@
-"""Model‑based value‑of‑information routines for rowvoi.
+"""Model-based value-of-information routines for rowvoi.
 
 🔮 USE CASE: Sequential Conditional Selection (Informed Prediction)
 This module solves Use Case 2 where you make sequential column selection decisions
@@ -57,9 +57,9 @@ class RowVoiModel:
     Parameters
     ----------
     smoothing : float, optional
-        A pseudo‑count added to each category when computing
-        frequencies.  This mitigates zero‑probability issues when
-        some candidate values are rare.  Default is 1e‑6.
+        A pseudo-count added to each category when computing
+        frequencies.  This mitigates zero-probability issues when
+        some candidate values are rare.  Default is 1e-6.
     noise : float, optional
         Probability that the observed feature value does not equal
         the candidate row's true value.  When greater than zero,
@@ -271,6 +271,10 @@ class RowVoiModel:
         float
             The expected conditional entropy (in bits).
         """
+        if self._df is None:
+            raise RuntimeError(
+                "RowVoiModel.fit() must be called before computing entropies."
+            )
         rows = state.candidate_rows
         # Determine candidate values for this column among current candidates.
         values = [self._df.iloc[r][col] for r in rows]
@@ -323,12 +327,12 @@ class RowVoiModel:
         Given a DataFrame ``df``, a current candidate state, and an
         optional set of candidate columns, this method evaluates each
         column for its expected mutual information ``I(R; X_col | E)``
-        under the model’s smoothing and noise assumptions.  It then
+        under the model's smoothing and noise assumptions.  It then
         returns the column with the best score.  Two objectives are
         supported:
 
-        * ``'mi'`` – select the column with the highest expected MI.
-        * ``'mi_over_cost'`` – divide expected MI by a user‑supplied
+        * ``'mi'`` - select the column with the highest expected MI.
+        * ``'mi_over_cost'`` - divide expected MI by a user-supplied
           cost for that feature.  This allows penalizing expensive
           features.
 
@@ -375,6 +379,7 @@ class RowVoiModel:
                 "RowVoiModel.fit() must be called before using suggest_next_feature()."
             )
         best_suggestion: FeatureSuggestion | None = None
+        best_score = -math.inf
         for col in candidate_cols:
             # Compute prior entropy of R given current state
             h_prior = state.entropy
@@ -545,11 +550,14 @@ class RowVoiModel:
             if suggestion is None:
                 break
             col = suggestion.col
+            if col is None:
+                break
             # Simulate acquiring the value from the true row
             true_value = df.iloc[true_row][col]
-            # Record observation
+            # Record observation. observed_values is typed as a read-only
+            # Mapping, so replace it rather than mutating in place.
             state.observed_cols.add(col)
-            state.observed_values[col] = true_value
+            state.observed_values = {**state.observed_values, col: true_value}
             # Update posterior: zero out rows with different value, renormalize
             new_posterior = np.zeros(len(state.candidate_rows))
             total_mass = 0.0

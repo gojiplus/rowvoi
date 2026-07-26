@@ -226,18 +226,13 @@ class TestModelIntegration:
     """Test integration with RowVoiModel."""
 
     def test_model_not_fit_error(self, simple_df):
-        """Test that functions handle unfitted models appropriately."""
+        """An unfitted model must fail with a message that names the fix."""
         unfitted_model = RowVoiModel()
 
-        # These should handle unfitted models gracefully
-        # by creating initial states that work
-        try:
+        with pytest.raises(Exception, match=r"(?i)fit"):
             find_key_probabilistic(
                 simple_df, rows=[0, 1], model=unfitted_model, max_steps=1
             )
-        except Exception as e:
-            # Should get a meaningful error about unfitted model
-            assert "fit" in str(e).lower()
 
     def test_different_model_parameters(self, simple_df):
         """Test with different model configurations."""

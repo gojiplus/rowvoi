@@ -255,7 +255,7 @@ class TestRowVoiModel:
         """Test error when suggesting before fitting."""
         model = RowVoiModel()
 
-        with pytest.raises(RuntimeError, match="RowVoiModel.fit\\(\\) must be called"):
+        with pytest.raises(RuntimeError, match=r"RowVoiModel\.fit\(\) must be called"):
             model.suggest_next_feature(sample_df, simple_state)
 
     def test_tie_breaking(self, sample_df):

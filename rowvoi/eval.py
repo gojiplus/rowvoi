@@ -5,6 +5,7 @@ key-finding algorithms and policies, including gold standard computation
 and systematic benchmarking.
 """
 
+import logging
 import random
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -18,9 +19,12 @@ from .core import CandidateState, ColName, RowIndex
 from .keys import KeyProblem, find_key
 from .policies import Policy
 from .session import DisambiguationSession, StopRules
+from .setcover import Strategy
 
 if TYPE_CHECKING:
     from .ml import RowVoiModel
+
+logger = logging.getLogger(__name__)
 
 
 def sample_candidate_sets(
@@ -97,7 +101,7 @@ def compute_gold_key(
         Optimal key columns
     """
     # Try ILP first (if available), then exact, then fallback to greedy
-    strategies = ["ilp", "exact", "greedy"]
+    strategies: list[Strategy] = ["ilp", "exact", "greedy"]
 
     for strategy in strategies:
         try:
@@ -111,6 +115,9 @@ def compute_gold_key(
                 time_limit=time_limit if strategy != "greedy" else None,
             )
         except Exception:
+            # Each strategy is best-effort: ILP needs pulp, exact can time out.
+            # Falling through to the next one is the point, but stay diagnosable.
+            logger.debug("gold key strategy %r failed, trying next", strategy)
             continue
 
     # Final fallback
@@ -154,10 +161,8 @@ def compute_gold_next_column_probabilistic(
     """
     # For now, use the model's suggestion as gold standard
     # A more sophisticated implementation could do exact computation
-    suggestion = model.suggest_next_feature(
-        df, state, candidate_features=candidate_cols
-    )
-    return suggestion.col
+    suggestion = model.suggest_next_feature(df, state, candidate_cols=candidate_cols)
+    return suggestion.col if suggestion is not None else None
 
 
 @dataclass
@@ -244,7 +249,9 @@ def evaluate_keys(
                 gold_key = list(gold_solver(df, candidate_rows))
                 gold_cost = sum(costs.get(c, 1.0) for c in gold_key)
             except Exception:
-                pass
+                # A failed gold solve leaves gold_key None and the row is
+                # scored without a baseline, rather than aborting the sweep.
+                logger.debug("gold solver failed for %r", rows_tuple, exc_info=True)
 
         # Evaluate each method
         for method_name, method_func in methods.items():
@@ -425,13 +432,13 @@ def evaluate_policies(
 
         stat = PolicyEvalStats(
             name=policy_name,
-            mean_steps=np.mean(steps_vals),
-            mean_cost=np.mean(cost_vals),
-            mean_final_entropy=np.mean(entropy_vals),
-            mean_final_pair_coverage=np.mean(coverage_vals),
-            std_steps=np.std(steps_vals),
-            std_cost=np.std(cost_vals),
-            success_rate=np.mean(success_vals),
+            mean_steps=float(np.mean(steps_vals)),
+            mean_cost=float(np.mean(cost_vals)),
+            mean_final_entropy=float(np.mean(entropy_vals)),
+            mean_final_pair_coverage=float(np.mean(coverage_vals)),
+            std_steps=float(np.std(steps_vals)),
+            std_cost=float(np.std(cost_vals)),
+            success_rate=float(np.mean(success_vals)),
         )
         stats.append(stat)
 
@@ -536,7 +543,12 @@ def benchmark_policy(
                     )
                     optimal_steps = len(optimal_key)
                 except Exception:
-                    pass
+                    # Optimal is a nice-to-have comparison; leave it None.
+                    logger.debug(
+                        "optimal key computation failed for subset size %d",
+                        size,
+                        exc_info=True,
+                    )
 
             result = AcquisitionResult(
                 subset_size=size,

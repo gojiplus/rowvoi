@@ -133,10 +133,7 @@ def plan_key_path_probabilistic(
     cumulative_cost = 0.0
 
     # Get candidate columns
-    if columns is None:
-        columns = list(df.columns)
-    else:
-        columns = list(columns)
+    columns = list(df.columns) if columns is None else list(columns)
 
     # Compute total pairs for coverage tracking
     n = len(rows)
@@ -155,20 +152,19 @@ def plan_key_path_probabilistic(
 
             # Get expected MI from model
             suggestion = model.suggest_next_feature(df, state, candidate_cols=[col])
+            if suggestion is None:
+                # Nothing to say about this column (already observed, or no
+                # candidates left), so it cannot win the argmax.
+                continue
+
+            voi = (
+                suggestion.expected_voi if suggestion.expected_voi else suggestion.score
+            )
 
             if objective == "mi":
-                score = (
-                    suggestion.expected_voi
-                    if suggestion.expected_voi
-                    else suggestion.score
-                )
+                score = voi
             elif objective == "mi_over_cost":
                 cost = costs.get(col, 1.0) if costs else 1.0
-                voi = (
-                    suggestion.expected_voi
-                    if suggestion.expected_voi
-                    else suggestion.score
-                )
                 score = voi / cost if cost > 0 else voi
             else:  # expected_entropy_reduction
                 score = (
@@ -181,11 +177,7 @@ def plan_key_path_probabilistic(
             if score > best_score:
                 best_col = col
                 best_score = score
-                best_mi = (
-                    suggestion.expected_voi
-                    if suggestion.expected_voi
-                    else suggestion.score
-                )
+                best_mi = voi
 
         if best_col is None:
             break
@@ -276,7 +268,11 @@ def estimate_coverage_probability(
 
         # Estimate reduction in candidates
         # This is a rough approximation
-        if state.entropy > 0 and suggestion.expected_voi is not None:
+        if (
+            state.entropy > 0
+            and suggestion is not None
+            and suggestion.expected_voi is not None
+        ):
             reduction_factor = max(0.3, 1.0 - suggestion.expected_voi / state.entropy)
         else:
             reduction_factor = 0.5

@@ -230,10 +230,8 @@ def answer_likelihoods(
     matches = (column == value).to_numpy()
 
     n_distinct = column.nunique(dropna=False)
-    if noise == 0.0 or n_distinct <= 1:
-        off_value = 0.0
-    else:
-        off_value = noise / (n_distinct - 1)
+    spread = noise == 0.0 or n_distinct <= 1
+    off_value = 0.0 if spread else noise / (n_distinct - 1)
 
     return np.where(matches, 1.0 - noise, off_value)
 

@@ -78,9 +78,11 @@ class StopRules:
             return True, "Found unique row"
 
         # Check posterior epsilon
-        if self.epsilon_posterior is not None:
-            if state.residual_uncertainty <= self.epsilon_posterior:
-                return True, f"Residual uncertainty <= {self.epsilon_posterior}"
+        if (
+            self.epsilon_posterior is not None
+            and state.residual_uncertainty <= self.epsilon_posterior
+        ):
+            return True, f"Residual uncertainty <= {self.epsilon_posterior}"
 
         # Check pairwise coverage epsilon
         if self.epsilon_pairs is not None and df is not None:
@@ -301,13 +303,12 @@ class DisambiguationSession:
             # Use highest posterior candidate
             import numpy as np
 
-            idx = np.argmax(self._state.posterior)
-            true_row = self._state.candidate_rows[idx]
+            true_row = self._state.candidate_rows[int(np.argmax(self._state.posterior))]
 
         # Run session
         while True:
             # Check stopping conditions
-            should_stop, reason = stop.should_stop(
+            should_stop, _reason = stop.should_stop(
                 self._state, self.steps_taken, self._cumulative_cost, self.df
             )
             if should_stop:
