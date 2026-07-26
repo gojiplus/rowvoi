@@ -167,6 +167,78 @@ class CandidateState:
             observed_values=new_observed_values,
         )
 
+    def reweight(
+        self,
+        likelihoods: Sequence[float] | np.ndarray,
+        *,
+        observed_col: ColName | None = None,
+        observed_value: Any = None,
+    ) -> "CandidateState":
+        """Apply soft evidence: multiply the posterior by a likelihood vector.
+
+        The soft counterpart to :meth:`filter_candidates`. Where that method
+        drops every candidate whose value differs, this one only reweights, so
+        a candidate is never eliminated on evidence that is merely improbable.
+        Use it when evidence is graded rather than exact -- retrieval scores,
+        model-predicted answers, noisy observations.
+
+        Candidates are all retained (including zero-likelihood ones, whose
+        posterior becomes 0), so positional alignment with `likelihoods` holds
+        across successive updates.
+
+        Parameters
+        ----------
+        likelihoods : Sequence[float]
+            P(evidence | candidate) for each candidate, in candidate_rows order.
+            Need not be normalized, but must be non-negative
+        observed_col : ColName, optional
+            Column/question this evidence came from, recorded in observed_cols
+        observed_value : Any, optional
+            The observed value, recorded in observed_values
+
+        Returns
+        -------
+        CandidateState
+            New state with the renormalized posterior
+
+        Raises
+        ------
+        ValueError
+            If `likelihoods` has the wrong length, contains a negative value, or
+            drives the total posterior mass to zero (evidence impossible under
+            every candidate -- the candidate set is wrong, not merely narrowed)
+        """
+        weights = np.asarray(likelihoods, dtype=float)
+
+        if weights.shape != (len(self.candidate_rows),):
+            raise ValueError(
+                f"Expected {len(self.candidate_rows)} likelihoods, "
+                f"got shape {weights.shape}"
+            )
+        if np.any(weights < 0):
+            raise ValueError("Likelihoods must be non-negative")
+
+        updated = self.posterior * weights
+        total = updated.sum()
+        if total <= 0:
+            raise ValueError(
+                "Evidence has zero likelihood under every candidate; "
+                "the posterior cannot be renormalized"
+            )
+
+        new_observed_cols = set(self.observed_cols)
+        new_observed_values = dict(self.observed_values)
+        if observed_col is not None:
+            new_observed_cols.add(observed_col)
+            new_observed_values[observed_col] = observed_value
+
+        return CandidateState(
+            candidate_rows=list(self.candidate_rows),
+            posterior=updated / total,
+            observed_cols=new_observed_cols,
+            observed_values=new_observed_values,
+        )
+
 
 @dataclass
 class FeatureSuggestion:

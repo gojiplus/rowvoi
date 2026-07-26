@@ -15,6 +15,7 @@
 - **Interactive Disambiguation**: Step-by-step column selection using value-of-information
 - **Multiple Policies**: Greedy coverage, mutual information, model-based, and random selection strategies
 - **Cost-Aware Selection**: Support for column acquisition costs and budget constraints
+- **RAG Adapters**: The same two engines applied to retrieval — minimal sufficient context, clarifying questions, adaptive retrieval ([see below](#-rag-minimal-context-and-clarifying-questions))
 - **Comprehensive Evaluation**: Tools for benchmarking and comparing different strategies
 
 ## 📚 Use Cases
@@ -30,6 +31,10 @@
 ### Active Learning & Feature Selection
 - **Costly Features**: When API calls or lab tests are expensive, which ones matter most?
 - **Human-in-the-Loop**: Guide annotators to the most informative questions
+
+### Retrieval-Augmented Generation
+- **Context Compression**: Which chunks are the minimum needed to support the answer?
+- **Ambiguous Queries**: When the top-k are near-tied, what should you ask the user?
 
 ## 🚀 Quick Start
 
@@ -182,6 +187,133 @@ policy_stats = evaluate_policies(df, candidate_sets, policies)
 for stat in policy_stats:
     print(f"{stat.name}: {stat.mean_steps:.1f} steps, {stat.success_rate:.1%} success")
 ```
+
+## 🔎 RAG: Minimal Context and Clarifying Questions
+
+`rowvoi.rag` applies the same two engines to retrieval. Nothing new is
+computed — set cover and mutual information are reused as-is, over a different
+universe:
+
+| Tabular                     | RAG                                                       |
+| --------------------------- | --------------------------------------------------------- |
+| Cover row pairs with columns | Cover **claims** with **chunks** (cost = tokens)          |
+| Next column by MI            | Next **clarifying question** (cost = user patience)       |
+| Sequential acquisition       | Next **retrieval probe** (cost = latency)                 |
+
+### Minimal sufficient context
+
+Top-k ranks each chunk independently, so it will happily spend the budget on
+five chunks supporting the same claim while a sixth claim goes unsupported.
+Set cover optimizes the selection jointly, and because chunk cost is token
+count, it prefers three small chunks over one large catch-all:
+
+```python
+from rowvoi.rag import Chunk, select_context, plan_context_path
+
+chunks = [
+    Chunk("doc1#p2", "The Pro plan costs $40/seat/mo.", tokens=180),
+    Chunk("doc2#p1", "v4.2 shipped March 3rd, 2026.", tokens=150),
+    Chunk("faq#p1",  "Pricing, releases, and SSO.",    tokens=1550),
+]
+claims = ["pro_plan_price", "v42_release_date"]
+support = {                      # a SupportJudge fills this in; see below
+    "pro_plan_price":  {"doc1#p2", "faq#p1"},
+    "v42_release_date": {"doc2#p1", "faq#p1"},
+}
+
+selection = select_context(chunks, claims, support)
+selection.chunks        # ['doc2#p1', 'doc1#p2'] — 330 tokens, not 1550
+selection.coverage      # 1.0
+selection.missing_claims  # set() — a claim nothing supports shows up here
+
+# Or fill a context window and see what the last token bought
+path = plan_context_path(chunks, claims, support)
+path.prefix_for_budget(200)   # ['doc2#p1']
+path.coverage_curve()         # [(150, 0.5), (330, 1.0)]
+```
+
+`epsilon_claims=0.05` lets you trade a small fraction of claims for a much
+smaller prompt.
+
+### Clarifying questions
+
+When the retrieved set is genuinely ambiguous, ask instead of guessing. Give it
+a matrix of the answer each candidate implies, and it picks the question that
+splits them best per unit of user effort:
+
+```python
+from rowvoi import CandidateState
+from rowvoi.rag import next_question, observe_answer, question_values
+
+answers = {                      # an AnswerPredictor fills this in
+    "Which deployment?":  ["cloud", "cloud", "self", "self"],
+    "Which version?":     ["v4",    "v3",    "v4",   "v3"],
+    "Are you an admin?":  ["yes",   "yes",   "yes",  "yes"],
+}
+
+# bits of uncertainty each question resolves, out of 2.0 for four candidates
+question_values(answers)
+# {'Which deployment?': 1.0, 'Which version?': 1.0, 'Are you an admin?': 0.0}
+
+next_question(answers, costs={"Which version?": 5.0}).col  # 'Which deployment?'
+
+state = CandidateState.uniform(range(4))
+state = observe_answer(state, answers, "Which deployment?", "self", noise=0.02)
+state.posterior            # [0.01, 0.01, 0.49, 0.49]
+```
+
+"Are you an admin?" scores exactly 0 bits — every candidate answers it the
+same way, so it cannot narrow anything. A relevance-ranked list would still
+ask it.
+
+### Adaptive retrieval
+
+Same machinery, with retrieval probes instead of questions and latency instead
+of patience. Stop when the posterior is sharp enough rather than at a fixed k:
+
+```python
+from rowvoi import StopRules
+from rowvoi.rag import RetrievalSession
+
+session = RetrievalSession(
+    probes,                       # candidates x probes outcome matrix
+    runner=my_backend,            # anything with .run(probe)
+    prior=retrieval_scores,       # scores become the prior
+    costs={"rerank": 12.0},       # expensive probes must earn their place
+    noise=0.05,
+)
+session.run(StopRules(epsilon_posterior=0.05))
+session.best_candidate, session.state.max_posterior
+```
+
+### Where the LLM goes
+
+Everything above is deterministic and needs only pandas and numpy. Producing
+the matrices is what needs a model, and that boundary is `rowvoi.rag.protocols`
+(`ClaimExtractor`, `SupportJudge`, `QuestionGenerator`, `AnswerPredictor`,
+`ProbeRunner`). Implement them yourself, or use the bundled Claude backing:
+
+```bash
+pip install "rowvoi[claude]"
+```
+
+```python
+from rowvoi.rag import extract_and_select
+from rowvoi.rag.claude import ClaudeClaimExtractor, ClaudeSupportJudge
+
+selection = extract_and_select(
+    query, chunks,
+    extractor=ClaudeClaimExtractor(),
+    judge=ClaudeSupportJudge(),
+)
+```
+
+`rowvoi.rag.claude` is never imported by `rowvoi.rag`, so the core keeps its
+pandas-and-numpy-only dependency footprint. It fills each matrix in one request
+and puts chunk text behind a prompt-cache breakpoint.
+
+A full runnable walkthrough of all three, with no API key required, is in
+[`examples/rag/rag_pipeline_demo.py`](examples/rag/rag_pipeline_demo.py).
 
 ## 🔬 Advanced Features
 

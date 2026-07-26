@@ -6,13 +6,13 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 install: ## Install development dependencies
-	uv sync --extra dev --extra docs
+	uv sync --extra dev --extra docs --extra optimization --extra claude
 
 test: ## Run tests
-	uv run pytest tests/ -v
+	uv run --extra optimization --extra claude pytest tests/ -v
 
 test-cov: ## Run tests with coverage
-	uv run pytest tests/ -v --cov=rowvoi --cov-report=term-missing --cov-report=html
+	uv run --extra optimization --extra claude pytest tests/ -v --cov=rowvoi --cov-report=term-missing --cov-report=html
 
 lint: ## Run linting checks
 	uv run ruff check .
@@ -53,7 +53,7 @@ ci: ## Run all CI checks locally
 ci-docker: ## Run CI in Docker (standard Python image)
 	docker run --rm -v $(PWD):/app -w /app python:3.11 sh -c \
 		"pip install uv && \
-		uv sync --extra dev && \
+		uv sync --extra dev --extra optimization --extra claude && \
 		uv run ruff check . && \
 		uv run deptry . && \
 		uv run ruff format --check . && \

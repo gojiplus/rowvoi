@@ -280,7 +280,7 @@ class CandidateMIPolicy:
         best_mi = 0.0
 
         for col in candidate_cols:
-            mi = self._compute_mi(df, state, col)
+            mi = self.compute_mi(df, state, col)
             cost = self.costs.get(col, 1.0) if self.costs else 1.0
             score = mi / cost
 
@@ -298,10 +298,15 @@ class CandidateMIPolicy:
             ),
         )
 
-    def _compute_mi(
+    def compute_mi(
         self, df: pd.DataFrame, state: CandidateState, col: ColName
     ) -> float:
-        """Compute conditional mutual information for a column."""
+        """Compute conditional mutual information I(R; X_col | E) in bits.
+
+        Model-free: groups candidates by their value in `col` and measures how
+        much the posterior's entropy drops in expectation. Public because
+        callers often want the full ranking, not just the argmax.
+        """
         rows = state.candidate_rows
         if len(rows) <= 1:
             return 0.0

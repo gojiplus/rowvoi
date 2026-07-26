@@ -24,6 +24,10 @@ keywords = [
     "data-cleaning",
     "entity-resolution",
     "mutual-information",
+    "rag",
+    "retrieval-augmented-generation",
+    "context-selection",
+    "set-cover",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -62,6 +66,9 @@ docs = [
 ]
 optimization = [
     "pulp>=2.7.0",
+]
+claude = [
+    "anthropic>=0.116.0",
 ]
 examples = [
     "scikit-learn>=1.7.2",
