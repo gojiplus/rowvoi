@@ -3,12 +3,11 @@
 This module handles the deterministic case where all column values are known.
 It solves the minimal set cover problem: find the smallest set of columns
 that distinguishes all pairs of rows in a candidate set.
+
+The universe of row pairs is built here; the solvers themselves live in
+:mod:`rowvoi.setcover`, which knows nothing about rows.
 """
 
-import itertools
-import math
-import random
-import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -16,6 +15,9 @@ from typing import Literal
 import pandas as pd
 
 from .core import ColName, RowIndex
+from .setcover import CoverPath, SetCoverProblem
+
+Pair = tuple[int, int]
 
 
 @dataclass
@@ -110,14 +112,33 @@ class KeyPath:
             Minimum columns needed to achieve (1-epsilon) coverage
         """
         target_coverage = 1.0 - epsilon
-        for step in self.steps:
+        for i, step in enumerate(self.steps):
             if step.coverage >= target_coverage:
-                return self.columns()[: self.steps.index(step) + 1]
+                return self.columns()[: i + 1]
         return self.columns()
 
     def coverage_curve(self) -> list[tuple[float, float]]:
         """Return the coverage curve as (cumulative_cost, coverage_fraction) points."""
         return [(step.cumulative_cost, step.coverage) for step in self.steps]
+
+
+def _to_key_path(path: CoverPath) -> KeyPath:
+    """Reframe a generic CoverPath in the vocabulary of row pairs."""
+    return KeyPath(
+        steps=[
+            KeyPathStep(
+                col=step.name,
+                newly_covered_pairs=step.newly_covered,
+                cumulative_covered_pairs=step.cumulative_covered,
+                total_pairs=step.total_elements,
+                marginal_cost=step.marginal_cost,
+                cumulative_cost=step.cumulative_cost,
+                newly_covered_weight=step.newly_covered_weight,
+                cumulative_covered_weight=step.cumulative_covered_weight,
+            )
+            for step in path.steps
+        ]
+    )
 
 
 def pairwise_coverage(
@@ -168,6 +189,7 @@ class KeyProblem:
     """Deterministic key-finding problem for a fixed subset of rows.
 
     Under the hood: universe = row pairs; columns cover pairs they separate.
+    Solving is delegated to :class:`~rowvoi.setcover.SetCoverProblem`.
 
     Parameters
     ----------
@@ -194,36 +216,29 @@ class KeyProblem:
         self.columns = list(columns) if columns is not None else list(df.columns)
         self.costs = costs or {}
 
-        # Precompute the universe and coverage mapping
-        self._universe, self._coverage = self._build_coverage()
+        universe, separates = self._build_coverage()
+        self._problem = SetCoverProblem(separates, universe=universe, costs=self.costs)
 
-    def _build_coverage(
-        self,
-    ) -> tuple[set[tuple[int, int]], dict[ColName, set[tuple[int, int]]]]:
-        """Build the universe of pairs and column coverage mapping."""
+    def _build_coverage(self) -> tuple[set[Pair], dict[ColName, set[Pair]]]:
+        """Build the universe of row pairs and the pairs each column separates."""
         n = len(self.rows)
         if n <= 1:
-            return set(), {}
+            # No pairs to distinguish; keep the columns so the solver still
+            # reports them as available (it will select none).
+            return set(), {col: set() for col in self.columns}
 
-        # Universe: all pairs of rows that need distinguishing
-        universe = set()
-        for i in range(n):
-            for j in range(i + 1, n):
-                universe.add((i, j))
+        pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+        universe = set(pairs)
 
-        # Coverage: which pairs each column distinguishes
-        coverage = {}
+        separates: dict[ColName, set[Pair]] = {}
         for col in self.columns:
-            covered = set()
-            for i in range(n):
-                for j in range(i + 1, n):
-                    row_i = self.rows[i]
-                    row_j = self.rows[j]
-                    if self.df.iloc[row_i][col] != self.df.iloc[row_j][col]:
-                        covered.add((i, j))
-            coverage[col] = covered
+            separates[col] = {
+                (i, j)
+                for i, j in pairs
+                if self.df.iloc[self.rows[i]][col] != self.df.iloc[self.rows[j]][col]
+            }
 
-        return universe, coverage
+        return universe, separates
 
     def is_key(
         self,
@@ -245,20 +260,11 @@ class KeyProblem:
         bool
             True if cols form an epsilon-key
         """
-        coverage = self.pairwise_coverage(cols)
-        return coverage >= 1.0 - epsilon_pairs
+        return self._problem.is_cover(cols, epsilon=epsilon_pairs)
 
     def pairwise_coverage(self, cols: Sequence[ColName]) -> float:
         """Compute pairwise coverage for this problem."""
-        if not self._universe:
-            return 1.0
-
-        covered = set()
-        for col in cols:
-            if col in self._coverage:
-                covered |= self._coverage[col]
-
-        return len(covered) / len(self._universe)
+        return self._problem.coverage(cols)
 
     def minimal_key(
         self,
@@ -292,324 +298,9 @@ class KeyProblem:
         list[ColName]
             Minimal (or near-minimal) set of columns
         """
-        if strategy == "greedy":
-            return self._greedy_set_cover(epsilon_pairs)
-        elif strategy == "exact":
-            return self._exact_set_cover(epsilon_pairs, time_limit)
-        elif strategy == "ilp":
-            return self._ilp_set_cover(epsilon_pairs, time_limit)
-        elif strategy == "sa":
-            return self._simulated_annealing(epsilon_pairs, time_limit)
-        elif strategy == "ga":
-            return self._genetic_algorithm(epsilon_pairs, time_limit)
-        elif strategy == "lp":
-            return self._lp_relaxation(epsilon_pairs, time_limit)
-        elif strategy == "hybrid":
-            return self._hybrid_sa_ga(epsilon_pairs, time_limit)
-        else:
-            raise ValueError(f"Unknown strategy: {strategy}")
-
-    def _greedy_set_cover(self, epsilon_pairs: float) -> list[ColName]:
-        """Greedy set cover algorithm."""
-        if not self._universe:
-            return []
-
-        selected = []
-        uncovered = self._universe.copy()
-        target_covered = len(self._universe) * (1 - epsilon_pairs)
-
-        while len(self._universe) - len(uncovered) < target_covered:
-            best_col = None
-            best_cost_ratio = float("inf")
-
-            for col in self.columns:
-                if col in selected:
-                    continue
-                gain = len(uncovered & self._coverage[col])
-                if gain > 0:
-                    cost = self.costs.get(col, 1.0)
-                    cost_ratio = cost / gain
-                    if cost_ratio < best_cost_ratio:
-                        best_col = col
-                        best_cost_ratio = cost_ratio
-
-            if best_col is None:
-                break
-
-            selected.append(best_col)
-            uncovered -= self._coverage[best_col]
-
-        return selected
-
-    def _exact_set_cover(
-        self, epsilon_pairs: float, time_limit: float | None
-    ) -> list[ColName]:
-        """Exact solution via brute force enumeration."""
-        if not self._universe:
-            return []
-
-        target_covered = len(self._universe) * (1 - epsilon_pairs)
-        best = None
-        best_cost = float("inf")
-        start_time = time.time()
-
-        # Try all subsets in order of increasing size
-        for size in range(1, len(self.columns) + 1):
-            if time_limit and time.time() - start_time > time_limit:
-                break
-
-            for subset in itertools.combinations(self.columns, size):
-                covered = set()
-                cost = 0.0
-                for col in subset:
-                    covered |= self._coverage[col]
-                    cost += self.costs.get(col, 1.0)
-
-                if len(covered) >= target_covered and cost < best_cost:
-                    best = list(subset)
-                    best_cost = cost
-                    # If we found a solution of this size, no need to check larger
-                    if epsilon_pairs == 0:
-                        return best
-
-            if best is not None and epsilon_pairs == 0:
-                return best
-
-        return best or self._greedy_set_cover(epsilon_pairs)
-
-    def _ilp_set_cover(
-        self, epsilon_pairs: float, time_limit: float | None
-    ) -> list[ColName]:
-        """Integer Linear Programming solution (requires pulp)."""
-        try:
-            import pulp
-        except ImportError:
-            # Fall back to greedy if pulp not available
-            return self._greedy_set_cover(epsilon_pairs)
-
-        if not self._universe:
-            return []
-
-        prob = pulp.LpProblem("SetCover", pulp.LpMinimize)
-
-        # Decision variables: x[c] = 1 if column c is selected
-        x = {col: pulp.LpVariable(f"x_{col}", cat="Binary") for col in self.columns}
-
-        # Objective: minimize total cost
-        prob += pulp.lpSum(x[col] * self.costs.get(col, 1.0) for col in self.columns)
-
-        # Constraints: each pair must be covered (with epsilon relaxation)
-        target_pairs = len(self._universe) * (1 - epsilon_pairs)
-        if epsilon_pairs == 0:
-            # Exact coverage constraints
-            for pair in self._universe:
-                covering_cols = [
-                    col for col in self.columns if pair in self._coverage[col]
-                ]
-                if covering_cols:
-                    prob += pulp.lpSum(x[col] for col in covering_cols) >= 1
-        else:
-            # Relaxed: count covered pairs
-            y = {
-                pair: pulp.LpVariable(f"y_{pair}", cat="Binary")
-                for pair in self._universe
-            }
-            for pair in self._universe:
-                covering_cols = [
-                    col for col in self.columns if pair in self._coverage[col]
-                ]
-                if covering_cols:
-                    prob += y[pair] <= pulp.lpSum(x[col] for col in covering_cols)
-            prob += pulp.lpSum(y[pair] for pair in self._universe) >= target_pairs
-
-        # Solve
-        if time_limit:
-            prob.solve(pulp.PULP_CBC_CMD(timeLimit=time_limit))
-        else:
-            prob.solve()
-
-        if prob.status == pulp.LpStatusOptimal:
-            return [col for col in self.columns if x[col].value() > 0.5]
-        else:
-            return self._greedy_set_cover(epsilon_pairs)
-
-    def _simulated_annealing(
-        self, epsilon_pairs: float, time_limit: float | None
-    ) -> list[ColName]:
-        """Use Simulated Annealing metaheuristic."""
-        if not self._universe:
-            return []
-
-        # Start with greedy solution
-        current = set(self._greedy_set_cover(epsilon_pairs))
-        current_cost = sum(self.costs.get(col, 1.0) for col in current)
-        best = current.copy()
-        best_cost = current_cost
-
-        target_covered = len(self._universe) * (1 - epsilon_pairs)
-        temperature = 10.0
-        cooling_rate = 0.95
-        start_time = time.time()
-
-        while temperature > 0.01:
-            if time_limit and time.time() - start_time > time_limit:
-                break
-
-            # Generate neighbor
-            neighbor = current.copy()
-            if random.random() < 0.5 and len(neighbor) > 1:
-                # Remove a random column
-                col_to_remove = random.choice(list(neighbor))
-                neighbor.remove(col_to_remove)
-            else:
-                # Add a random column not in the set
-                candidates = [c for c in self.columns if c not in neighbor]
-                if candidates:
-                    neighbor.add(random.choice(candidates))
-
-            # Check if neighbor is valid
-            covered = set()
-            for col in neighbor:
-                covered |= self._coverage[col]
-
-            if len(covered) >= target_covered:
-                neighbor_cost = sum(self.costs.get(col, 1.0) for col in neighbor)
-                delta = neighbor_cost - current_cost
-
-                if delta < 0 or random.random() < math.exp(-delta / temperature):
-                    current = neighbor
-                    current_cost = neighbor_cost
-
-                    if current_cost < best_cost:
-                        best = current.copy()
-                        best_cost = current_cost
-
-            temperature *= cooling_rate
-
-        return list(best)
-
-    def _genetic_algorithm(
-        self, epsilon_pairs: float, time_limit: float | None
-    ) -> list[ColName]:
-        """Genetic Algorithm metaheuristic."""
-        if not self._universe:
-            return []
-
-        target_covered = len(self._universe) * (1 - epsilon_pairs)
-        population_size = 50
-        generations = 100
-        mutation_rate = 0.1
-        start_time = time.time()
-
-        # Initialize population
-        population = []
-        # Add greedy solution
-        greedy = set(self._greedy_set_cover(epsilon_pairs))
-        population.append(greedy)
-
-        # Add random valid solutions
-        while len(population) < population_size:
-            if time_limit and time.time() - start_time > time_limit:
-                break
-
-            individual = set()
-            uncovered = self._universe.copy()
-
-            while len(self._universe) - len(uncovered) < target_covered:
-                candidates = [c for c in self.columns if c not in individual]
-                if not candidates:
-                    break
-                col = random.choice(candidates)
-                individual.add(col)
-                uncovered -= self._coverage[col]
-
-            if len(self._universe) - len(uncovered) >= target_covered:
-                population.append(individual)
-
-        best = min(population, key=lambda x: sum(self.costs.get(col, 1.0) for col in x))
-
-        for _ in range(generations):
-            if time_limit and time.time() - start_time > time_limit:
-                break
-
-            # Selection and crossover
-            new_population = [best]  # Elitism
-
-            while len(new_population) < population_size:
-                # Tournament selection
-                parent1 = min(
-                    random.sample(population, 3),
-                    key=lambda x: sum(self.costs.get(col, 1.0) for col in x),
-                )
-                parent2 = min(
-                    random.sample(population, 3),
-                    key=lambda x: sum(self.costs.get(col, 1.0) for col in x),
-                )
-
-                # Crossover
-                child = set()
-                for col in parent1 | parent2:
-                    if random.random() < 0.5:
-                        child.add(col)
-
-                # Mutation
-                if random.random() < mutation_rate:
-                    if random.random() < 0.5 and len(child) > 1:
-                        child.remove(random.choice(list(child)))
-                    else:
-                        candidates = [c for c in self.columns if c not in child]
-                        if candidates:
-                            child.add(random.choice(candidates))
-
-                # Check validity
-                covered = set()
-                for col in child:
-                    covered |= self._coverage[col]
-
-                if len(covered) >= target_covered:
-                    new_population.append(child)
-
-            population = new_population
-            current_best = min(
-                population, key=lambda x: sum(self.costs.get(col, 1.0) for col in x)
-            )
-            current_cost = sum(self.costs.get(col, 1.0) for col in current_best)
-            best_cost = sum(self.costs.get(col, 1.0) for col in best)
-            if current_cost < best_cost:
-                best = current_best
-
-        return list(best)
-
-    def _lp_relaxation(
-        self, epsilon_pairs: float, time_limit: float | None
-    ) -> list[ColName]:
-        """Linear Programming relaxation with rounding."""
-        # For simplicity, fall back to greedy
-        # A full implementation would use scipy.optimize.linprog or similar
-        return self._greedy_set_cover(epsilon_pairs)
-
-    def _hybrid_sa_ga(
-        self, epsilon_pairs: float, time_limit: float | None
-    ) -> list[ColName]:
-        """Hybrid SA+GA approach."""
-        if time_limit:
-            half_time = time_limit / 2
-            sa_result = set(self._simulated_annealing(epsilon_pairs, half_time))
-            ga_result = set(self._genetic_algorithm(epsilon_pairs, half_time))
-
-            sa_cost = sum(self.costs.get(col, 1.0) for col in sa_result)
-            ga_cost = sum(self.costs.get(col, 1.0) for col in ga_result)
-
-            return list(sa_result) if sa_cost <= ga_cost else list(ga_result)
-        else:
-            # Run both and pick the better one
-            sa_result = set(self._simulated_annealing(epsilon_pairs, None))
-            ga_result = set(self._genetic_algorithm(epsilon_pairs, None))
-
-            sa_cost = sum(self.costs.get(col, 1.0) for col in sa_result)
-            ga_cost = sum(self.costs.get(col, 1.0) for col in ga_result)
-
-            return list(sa_result) if sa_cost <= ga_cost else list(ga_result)
+        return self._problem.solve(
+            strategy, epsilon=epsilon_pairs, time_limit=time_limit
+        )
 
     def plan_path(
         self,
@@ -633,95 +324,11 @@ class KeyProblem:
         KeyPath
             Ordered sequence with coverage information
         """
-        if not self._universe:
-            return KeyPath(steps=[])
-
-        # Compute pair weights if needed
-        pair_weights = {}
-        if weighting == "pair_idf":
-            # IDF-like weighting: pairs covered by fewer columns get higher weight
-            for pair in self._universe:
-                covering_cols = [c for c in self.columns if pair in self._coverage[c]]
-                if covering_cols:
-                    pair_weights[pair] = 1.0 / len(covering_cols)
-                else:
-                    pair_weights[pair] = 1.0
-        else:
-            pair_weights = dict.fromkeys(self._universe, 1.0)
-
-        selected = []
-        uncovered = self._universe.copy()
-        steps = []
-        cumulative_cost = 0.0
-        cumulative_covered = 0
-
-        while uncovered and len(selected) < len(self.columns):
-            best_col = None
-            best_score = -float("inf")
-
-            for col in self.columns:
-                if col in selected:
-                    continue
-
-                newly_covered = uncovered & self._coverage[col]
-                if not newly_covered:
-                    continue
-
-                cost = self.costs.get(col, 1.0)
-
-                if objective == "pair_coverage":
-                    # Score = weighted newly covered pairs / cost
-                    weighted_gain = sum(pair_weights[p] for p in newly_covered)
-                    score = weighted_gain / cost
-                else:  # entropy
-                    # Score = entropy reduction / cost
-                    # Entropy before adding this column
-                    n_clusters_before = len(uncovered) + len(selected) + 1
-                    h_before = (
-                        math.log2(n_clusters_before) if n_clusters_before > 1 else 0
-                    )
-                    # Entropy after adding this column
-                    n_clusters_after = (
-                        len(uncovered - newly_covered) + len(selected) + 2
-                    )
-                    h_after = math.log2(n_clusters_after) if n_clusters_after > 1 else 0
-                    score = (h_before - h_after) / cost
-
-                if score > best_score:
-                    best_col = col
-                    best_score = score
-
-            if best_col is None:
-                break
-
-            newly_covered = uncovered & self._coverage[best_col]
-            selected.append(best_col)
-            uncovered -= newly_covered
-            cost = self.costs.get(best_col, 1.0)
-            cumulative_cost += cost
-            cumulative_covered += len(newly_covered)
-
-            step = KeyPathStep(
-                col=best_col,
-                newly_covered_pairs=len(newly_covered),
-                cumulative_covered_pairs=cumulative_covered,
-                total_pairs=len(self._universe),
-                marginal_cost=cost,
-                cumulative_cost=cumulative_cost,
-                newly_covered_weight=(
-                    sum(pair_weights[p] for p in newly_covered)
-                    if weighting == "pair_idf"
-                    else None
-                ),
-                cumulative_covered_weight=(
-                    sum(pair_weights[p] for p in (self._universe - uncovered))
-                    if weighting == "pair_idf"
-                    else None
-                ),
-            )
-            steps.append(step)
-
-        return KeyPath(steps=steps)
+        path = self._problem.plan_path(
+            objective="coverage" if objective == "pair_coverage" else "entropy",
+            weighting="idf" if weighting == "pair_idf" else "uniform",
+        )
+        return _to_key_path(path)
 
 
 def find_key(
@@ -730,7 +337,7 @@ def find_key(
     *,
     columns: Sequence[ColName] | None = None,
     costs: Mapping[ColName, float] | None = None,
-    strategy: str = "greedy",
+    strategy: Literal["greedy", "exact", "ilp", "sa", "ga", "lp", "hybrid"] = "greedy",
     epsilon_pairs: float = 0.0,
     time_limit: float | None = None,
 ) -> list[ColName]:
@@ -772,8 +379,8 @@ def plan_key_path(
     *,
     columns: Sequence[ColName] | None = None,
     costs: Mapping[ColName, float] | None = None,
-    objective: str = "pair_coverage",
-    weighting: str = "uniform",
+    objective: Literal["pair_coverage", "entropy"] = "pair_coverage",
+    weighting: Literal["uniform", "pair_idf"] = "uniform",
 ) -> KeyPath:
     """Plan an ordered path of columns for disambiguation.
 
