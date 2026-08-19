@@ -76,15 +76,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Versioning is derived from the git tag** (hatchling + uv-dynamic-versioning)
-  rather than hand-maintained. `pyproject.toml` no longer carries a `version`,
-  and there is no `__version__` literal. This removes a three-way drift in
-  which `pyproject.toml` said 0.2.0 while `CITATION.cff` and `docs/conf.py`
-  both said 0.1.0.
+- **Build backend is `uv_build` with an explicit `project.version`** (currently
+  the last released tag, bumped by the release flow). An interim state derived
+  the version from the git tag via hatchling + uv-dynamic-versioning; the fleet
+  standard instead keeps the version explicit and checks it against the tag at
+  release time. There is still no `__version__` literal.
 - Adopted the [py-canon](https://github.com/gojiplus/py-canon) fleet standard
-  via [preen](https://github.com/gojiplus/preen): canon CI/docs/release
-  workflows, `pyright` and `pydoclint` in the gate, PEP 735 dependency groups
-  in place of the `dev` and `docs` extras, and PEP 639 license metadata.
+  (template v1.1.0) via [preen](https://github.com/gojiplus/preen): canon
+  CI/docs/release workflows with `run-preen` conformance in the gate, `pyright`
+  and `pydoclint` in the gate, PEP 735 dependency groups in place of the `dev`
+  and `docs` extras, and PEP 639 license metadata. The canon ruff rule set
+  widened (PTH, RET, PERF, ARG, SLF, and friends); the CI matrix now tests
+  Python 3.11 and 3.14.
 - Docstrings converted from numpy to Google style. This is what made
   `pydoclint` able to parse them at all; in google mode it could not read
   numpy sections and so reported zero problems on a codebase with 22 real

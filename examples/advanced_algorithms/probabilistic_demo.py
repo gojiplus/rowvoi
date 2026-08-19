@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Demo of probabilistic and model-based rowvoi capabilities.
 
 This script demonstrates the probabilistic and model-based features of rowvoi:
@@ -50,12 +49,12 @@ df = pd.DataFrame(
 
 print(f"📊 Dataset: {len(df)} rows x {len(df.columns)} columns")
 print(f"   Columns: {list(df.columns)}")
-print("")
+print()
 
 # Select some rows to disambiguate
 rows = [5, 12, 23, 34, 45]
 print(f"🎯 Task: Disambiguate rows {rows}")
-print("")
+print()
 
 # 1. DETERMINISTIC APPROACH (baseline)
 print("1️⃣  DETERMINISTIC KEY FINDING")
@@ -67,7 +66,7 @@ print(f"   Number of columns: {len(deterministic)}")
 # Check coverage
 det_coverage = pairwise_coverage(df, rows, deterministic)
 print(f"   Actual coverage: {det_coverage:.1%}")
-print("")
+print()
 
 # 2. MODEL-BASED PROBABILISTIC APPROACH
 print("2️⃣  MODEL-BASED PROBABILISTIC SELECTION")
@@ -94,7 +93,7 @@ except Exception as e:
     print(f"   ❌ Probabilistic key finding failed: {str(e)[:50]}")
     prob_key = deterministic  # Fallback
 
-print("")
+print()
 
 # 3. COST-AWARE PROBABILISTIC SELECTION
 print("3️⃣  COST-AWARE PROBABILISTIC SELECTION")
@@ -132,7 +131,7 @@ try:
 except Exception as e:
     print(f"   ❌ Cost-aware selection failed: {str(e)[:50]}")
 
-print("")
+print()
 
 # 4. PROBABILISTIC PATH PLANNING
 print("4️⃣  PROBABILISTIC PATH PLANNING")
@@ -169,7 +168,7 @@ try:
 except Exception as e:
     print(f"   ❌ Path planning failed: {str(e)[:50]}")
 
-print("")
+print()
 
 # 5. INTERACTIVE MODEL-BASED DISAMBIGUATION
 print("5️⃣  INTERACTIVE MODEL-BASED SESSION")
@@ -211,7 +210,7 @@ try:
 except Exception as e:
     print(f"   ❌ Interactive session failed: {str(e)[:50]}")
 
-print("")
+print()
 
 # 6. NOISE ROBUSTNESS DEMONSTRATION
 print("6️⃣  NOISE ROBUSTNESS TEST")
@@ -241,7 +240,7 @@ for noise in noise_levels:
     except Exception as e:
         print(f"   Noise {noise:.1f}: failed - {str(e)[:30]}")
 
-print("")
+print()
 
 # 7. SUMMARY COMPARISON
 print("📊 SUMMARY COMPARISON")
@@ -264,7 +263,7 @@ if "cost_aware_key" in locals():
     cost_label = f"Cost-aware (cost={cost_total:.1f})"
     print(f"{cost_label:<35} {len(cost_aware_key):<10} {cost_cov:>11.1%}")
 
-print("")
+print()
 print("💡 KEY INSIGHTS:")
 print("   • Models predict expected information value before observing data")
 print("   • Probabilistic methods can reduce column requirements")

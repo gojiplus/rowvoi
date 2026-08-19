@@ -40,7 +40,7 @@ def create_sample_data():
     """Create a sample dataset for demonstration."""
     np.random.seed(42)
     n_rows = 100
-    df = pd.DataFrame(
+    return pd.DataFrame(
         {
             "age_group": np.random.choice(["18-25", "26-35", "36-50", "50+"], n_rows),
             "education": np.random.choice(["HS", "Bachelor", "Master", "PhD"], n_rows),
@@ -58,7 +58,6 @@ def create_sample_data():
             "satisfaction": np.random.choice(["Low", "Medium", "High"], n_rows),
         }
     )
-    return df
 
 
 def demo_deterministic_keys():

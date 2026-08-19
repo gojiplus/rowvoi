@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """📋 Survey and Questionnaire Optimization with RowVoi.
 
 This script demonstrates how to design better surveys and questionnaires by:
@@ -369,7 +368,7 @@ def analyze_feature_importance(df: pd.DataFrame, dataset_name: str):
 
         # Test on a representative candidate set
         n_candidates = min(6, len(df))
-        candidate_rows = list(range(0, n_candidates))
+        candidate_rows = list(range(n_candidates))
         state = CandidateState.uniform(candidate_rows)
 
         print(f"   Feature rankings for {n_candidates} candidates:")

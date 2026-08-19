@@ -43,7 +43,7 @@ PLACEHOLDERS = {
 
 def python_blocks() -> list[str]:
     """Return every fenced python block in the README, in document order."""
-    return re.findall(r"```python\n(.*?)```", README.read_text(), re.S)
+    return re.findall(r"```python\n(.*?)```", README.read_text(), re.DOTALL)
 
 
 def test_readme_has_blocks():

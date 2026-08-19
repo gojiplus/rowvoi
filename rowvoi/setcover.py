@@ -12,6 +12,7 @@ import random
 import time
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any, Literal
 
 # Type aliases
@@ -38,7 +39,7 @@ class SolverUnavailableError(RuntimeError):
     """
 
 
-def _find_solver(pulp, *, time_limit: float | None = None):
+def _find_solver(pulp: ModuleType, *, time_limit: float | None = None) -> Any | None:
     """Return the first available pulp solver, or None if there is none.
 
     Args:
@@ -237,20 +238,19 @@ class SetCoverProblem:
         """
         if strategy == "greedy":
             return self._greedy(epsilon)
-        elif strategy == "exact":
+        if strategy == "exact":
             return self._exact(epsilon, time_limit)
-        elif strategy == "ilp":
+        if strategy == "ilp":
             return self._ilp(epsilon, time_limit)
-        elif strategy == "sa":
+        if strategy == "sa":
             return self._simulated_annealing(epsilon, time_limit)
-        elif strategy == "ga":
+        if strategy == "ga":
             return self._genetic_algorithm(epsilon, time_limit)
-        elif strategy == "lp":
+        if strategy == "lp":
             return self._lp_relaxation(epsilon, time_limit)
-        elif strategy == "hybrid":
+        if strategy == "hybrid":
             return self._hybrid_sa_ga(epsilon, time_limit)
-        else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        raise ValueError(f"Unknown strategy: {strategy}")
 
     def _greedy(self, epsilon: float) -> list[SetName]:
         """Greedy set cover algorithm."""
@@ -408,8 +408,7 @@ class SetCoverProblem:
         if prob.status == pulp.LpStatusOptimal:
             # An unset variable reads back as None rather than 0.0.
             return [name for name in self.names if (x[name].value() or 0.0) > 0.5]
-        else:
-            return self._greedy(epsilon)
+        return self._greedy(epsilon)
 
     def _simulated_annealing(
         self, epsilon: float, time_limit: float | None
@@ -529,7 +528,13 @@ class SetCoverProblem:
 
         return list(best)
 
-    def _lp_relaxation(self, epsilon: float, time_limit: float | None) -> list[SetName]:
+    def _lp_relaxation(
+        self,
+        epsilon: float,
+        # Every strategy method shares the (epsilon, time_limit) signature so
+        # solve() can dispatch uniformly; greedy has no time budget to spend.
+        time_limit: float | None,  # noqa: ARG002
+    ) -> list[SetName]:
         """Linear Programming relaxation with rounding."""
         # For simplicity, fall back to greedy
         # A full implementation would use scipy.optimize.linprog or similar

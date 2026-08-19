@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """🎯 USE CASE 1: Known Data Collection (Set Cover) - Comprehensive Demo.
 
 This script demonstrates key-finding algorithms for the scenario where you have
@@ -149,7 +148,10 @@ def benchmark_algorithms(
     problem = KeyProblem(df, rows, costs=costs)
     total_pairs = len(rows) * (len(rows) - 1) // 2
 
-    print(f"\n  🎯 Benchmarking {len(algorithms)} algorithms on {len(rows)} rows...")
+    print(
+        f"\n  🎯 Benchmarking {len(algorithms)} algorithms"
+        f" on {len(rows)} rows of {dataset_name}..."
+    )
     print(f"     Total pairs to distinguish: {total_pairs}")
 
     for algo in algorithms:
@@ -301,11 +303,12 @@ def main():
 
         # Summary for this dataset
         print(f"\n📈 Summary for {name}:")
-        successful_results = []
-        for test_case in dataset_results:
-            for _algo, result in test_case["results"].items():
-                if "size" in result and result["valid"]:
-                    successful_results.append(result)
+        successful_results = [
+            result
+            for test_case in dataset_results
+            for result in test_case["results"].values()
+            if "size" in result and result["valid"]
+        ]
 
         if successful_results:
             avg_size = np.mean([r["size"] for r in successful_results])

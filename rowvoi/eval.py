@@ -151,7 +151,9 @@ def compute_gold_next_column_probabilistic(
     model: "RowVoiModel",
     *,
     candidate_cols: Sequence[ColName] | None = None,
-    objective: Literal["mi", "expected_entropy_reduction"] = "mi",
+    # Part of the documented API; the current implementation delegates to the
+    # model's suggestion, which computes MI, so only the default is honoured.
+    objective: Literal["mi", "expected_entropy_reduction"] = "mi",  # noqa: ARG001
 ) -> ColName:
     """Compute the 'gold standard' next column under a model.
 
@@ -206,7 +208,10 @@ def evaluate_keys(
     ],
     *,
     costs: Mapping[ColName, float] | None = None,
-    epsilon_pairs: float = 0.0,
+    # Part of the documented API. Results report the exact pair coverage each
+    # method achieved; the tolerance is for the methods under evaluation (and
+    # any gold solver) to apply, not for the scoring here to absorb.
+    epsilon_pairs: float = 0.0,  # noqa: ARG001
     gold_solver: Callable[..., Sequence[ColName]] | None = None,
 ) -> list[KeyEvalResult]:
     """Evaluate multiple key-finding methods on candidate sets.

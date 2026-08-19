@@ -4,6 +4,7 @@ This module defines the Policy protocol and various concrete implementations
 for deciding which column to query next during disambiguation.
 """
 
+import itertools
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -102,10 +103,7 @@ class GreedyCoveragePolicy:
             return FeatureSuggestion(col=None, score=0.0)
 
         # Build pair coverage info
-        pairs = []
-        for i in range(len(rows)):
-            for j in range(i + 1, len(rows)):
-                pairs.append((rows[i], rows[j]))
+        pairs = list(itertools.combinations(rows, 2))
 
         # Compute pair weights
         pair_weights = {}
@@ -157,7 +155,7 @@ class GreedyCoveragePolicy:
 
                 # Expected entropy after observing this column
                 h_after = 0.0
-                for _val, group_rows in value_groups.items():
+                for group_rows in value_groups.values():
                     # Probability of observing this value
                     p_val = sum(
                         state.posterior[state.candidate_rows.index(r)]
@@ -344,7 +342,7 @@ class CandidateMIPolicy:
 
         # Compute expected conditional entropy H(R | E, X_col)
         h_conditional = 0.0
-        for _val, group_indices in value_groups.items():
+        for group_indices in value_groups.values():
             # Probability that X_col takes this value
             p_x = sum(state.posterior[i] for i in group_indices)
             if p_x <= 0:
