@@ -40,9 +40,10 @@ examples run via `tests/test_docstrings.py`. If you write an example, write
 its real output — don't guess it. The docs in this repo previously rotted into
 documenting an API that no longer existed, precisely because nothing ran them.
 
-**Version numbers are not edited by hand.** The version is derived from the
-git tag via `uv-dynamic-versioning`. There is no `version =` in
-`pyproject.toml` and no `__version__ = "..."` literal to bump.
+**Version numbers are not edited by hand.** `version =` in `pyproject.toml`
+holds the released version: bump it with `uv version x.y.z` (never a text
+edit), commit, and let `preen release` tag — it refuses a tag that does not
+match `project.version`. There is no `__version__ = "..."` literal to bump.
 
 ## Releasing
 
