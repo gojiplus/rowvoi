@@ -148,10 +148,10 @@ dev = [
     "ruff>=0.14",
     "pyright>=1.1.390",
     "pydoclint>=0.5",
-    "pytest>=8",
-    # Not in the canon dev group, but the reusable CI test job runs
-    # `pytest --cov`, which aborts without the plugin.
-    "pytest-cov>=4.0.0",
     "deptry>=0.20.0",
     "twine>=4.0.0",
+    { include-group = "test" },
 ]
+# The canon wheel job installs the built wheel with `--group test` in a clean
+# venv, so this group must exist and carry everything the tests import.
+test = ["pytest>=8", "pytest-cov>=6"]
