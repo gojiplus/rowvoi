@@ -137,9 +137,7 @@ def plan_key_path_probabilistic(
                 # candidates left), so it cannot win the argmax.
                 continue
 
-            voi = (
-                suggestion.expected_voi if suggestion.expected_voi else suggestion.score
-            )
+            voi = suggestion.expected_voi or suggestion.score
 
             if objective == "mi":
                 score = voi
@@ -259,10 +257,9 @@ def estimate_coverage_probability(
     # Return probability based on final state
     if len(state.candidate_rows) <= 1:
         return 1.0
-    else:
-        # Estimate based on how much we've reduced the candidate set
-        return (
-            1.0 - (len(state.candidate_rows) - 1) / (len(rows) - 1)
-            if len(rows) > 1
-            else 1.0
-        )
+    # Estimate based on how much we've reduced the candidate set
+    return (
+        1.0 - (len(state.candidate_rows) - 1) / (len(rows) - 1)
+        if len(rows) > 1
+        else 1.0
+    )

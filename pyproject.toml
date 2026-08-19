@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
 
 [project]
 name = "rowvoi"
@@ -38,11 +38,12 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dynamic = ["version"]
+version = "0.2.0"
 
 [project.urls]
 Homepage = "https://github.com/gojiplus/rowvoi"
@@ -68,19 +69,22 @@ exclude = ["*.ipynb"]  # notebooks are demo output, not linted source
 
 [tool.ruff.lint]
 external = ["DOC"]
-select = ["E", "W", "F", "I", "B", "C4", "UP", "N", "D", "S", "SIM", "T20", "PT", "RUF"]
-ignore = [
-    "D203", "D213", "D100", "D104", "D105", "D107",
-    # __all__ is grouped by capability with section comments, which is more
-    # useful to a reader than alphabetical order.
-    "RUF022",
+select = [
+    "E", "W", "F", "I", "B", "C4", "UP", "N", "D", "S", "SIM", "T20", "PT", "RUF",
+    "PTH", "RET", "PIE", "FURB", "PERF", "DTZ", "LOG", "G", "TC", "FLY",
+    "RSE", "SLOT", "FA", "A", "EXE", "ICN", "PGH", "PLE", "ARG", "SLF",
 ]
+# D203/D213: the google convention the fleet standard picks. W191/D206/D300:
+# ruff's own docs list these as always incompatible with `ruff format`, which
+# the standard also runs. RUF022: __all__ is grouped by capability with
+# section comments, which is more useful to a reader than alphabetical order.
+ignore = ["D203", "D213", "W191", "D206", "D300", "D100", "D104", "D105", "D107", "RUF022"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "D"]
+"tests/**" = ["S101", "D", "ARG", "SLF"]
 "docs/**" = ["D"]
 # Examples are runnable scripts: print IS the output, and narrating them in
 # docstrings would bury the point.
@@ -135,29 +139,9 @@ check-class-attributes = false
 allow-init-docstring = true
 exclude = '\.venv|tests|docs'
 
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
-
-[tool.hatch.build.targets.wheel]
-packages = ["rowvoi"]
-
-# Without an explicit sdist target hatchling sweeps in docs/, examples/,
-# htmlcov/ and dist/.
-[tool.hatch.build.targets.sdist]
-include = [
-    "/rowvoi",
-    "/tests",
-    "/README.md",
-    "/CHANGELOG.md",
-    "/LICENSE",
-    "/CITATION.cff",
-    "/pyproject.toml",
-]
-
-[tool.uv-dynamic-versioning]
-vcs = "git"
-style = "pep440"
-
+[tool.uv.build-backend]
+module-name = "rowvoi"
+module-root = ""
 [dependency-groups]
 docs = ["sphinx>=8", "furo", "myst-parser", "sphinx-copybutton", "py-canon @ git+https://github.com/gojiplus/py-canon@v1"]
 dev = [
@@ -165,8 +149,8 @@ dev = [
     "pyright>=1.1.390",
     "pydoclint>=0.5",
     "pytest>=8",
-    # Not in the canon dev group, but pytest addopts hardcode --cov, so a
-    # group-only sync fails without it.
+    # Not in the canon dev group, but the reusable CI test job runs
+    # `pytest --cov`, which aborts without the plugin.
     "pytest-cov>=4.0.0",
     "deptry>=0.20.0",
     "twine>=4.0.0",

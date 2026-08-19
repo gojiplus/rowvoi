@@ -19,8 +19,5 @@ jobs:
     uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
     with:
       wheel-import: rowvoi
-      coverage-floor: 0
-      # The canon default is ["3.11", "3.14"]. Pinned to match the classifiers
-      # in pyproject.toml; re-running `preen adopt`/`update` overwrites this
-      # file and silently restores the default.
-      python-versions: '["3.11", "3.12", "3.13"]'
+      coverage-floor: 94
+      run-preen: true

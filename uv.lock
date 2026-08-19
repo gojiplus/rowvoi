@@ -1500,6 +1500,7 @@ wheels = [
 
 [[package]]
 name = "rowvoi"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -1545,7 +1546,7 @@ requires-dist = [
     { name = "pulp", marker = "extra == 'optimization'", specifier = ">=2.7.0" },
     { name = "scikit-learn", marker = "extra == 'examples'", specifier = ">=1.7.2" },
 ]
-provides-extras = ["claude", "examples", "optimization"]
+provides-extras = ["optimization", "claude", "examples"]
 
 [package.metadata.requires-dev]
 dev = [
