@@ -135,7 +135,10 @@ def compute_gold_key(
         )
 
     logger.debug("falling back to an approximate gold key for %d rows", len(rows))
-    return find_key(
+    # No time_limit: SetCoverProblem.solve() routes "greedy" to _greedy(epsilon),
+    # which takes no budget. The limit belongs to the exact and ILP strategies
+    # that were already tried and exhausted above.
+    return find_key(  # preen: allow-dropped-arg
         df,
         rows,
         columns=columns,
@@ -473,7 +476,10 @@ def benchmark_policy(
         size_results = []
 
         # Sample candidate sets
-        candidate_sets = sample_candidate_sets(
+        # No random_state: both functions seed the global `random` module, and
+        # this one already seeded it once above. Passing it here would re-seed
+        # on every iteration, so each subset size would draw the same samples.
+        candidate_sets = sample_candidate_sets(  # preen: allow-dropped-arg
             df, subset_size=size, n_samples=n_samples
         )
 

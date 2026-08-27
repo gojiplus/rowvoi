@@ -53,7 +53,10 @@ Documentation = "https://gojiplus.github.io/rowvoi/"
 
 [project.optional-dependencies]
 optimization = [
-    "pulp>=2.7.0",
+    # The [cbc] extra ships the CBC binary. Without it the only usable solver
+    # is PULP_CBC_CMD, which pulp 3.x deprecates -- and constructing it warns,
+    # which under filterwarnings = ["error"] leaves no solver at all.
+    "pulp[cbc]>=3.0",
 ]
 claude = [
     "anthropic>=0.116.0",
@@ -101,10 +104,10 @@ testpaths = ["tests"]
 # Deliberately no --cov here: the wheel smoke test installs the built wheel
 # into a clean venv with pytest but no pytest-cov, and unknown arguments abort
 # the run. Ask for coverage explicitly instead (see `make test-cov`).
-addopts = [
-    "-ra",
-    "--strict-markers",
-]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+log_level = "INFO"
+xfail_strict = true
+filterwarnings = ["error"]
 
 [tool.coverage.run]
 source = ["rowvoi"]

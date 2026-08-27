@@ -186,12 +186,38 @@ class TestSolverAvailability:
     def test_prefers_the_non_deprecated_solver(self, monkeypatch):
         pulp = pytest.importorskip("pulp")
 
-        # Make COIN_CMD look available; the probe should stop there rather
-        # than falling through to the deprecated PULP_CBC_CMD.
+        # Make COIN_CMD look available and runnable; the search should stop
+        # there rather than falling through to the deprecated PULP_CBC_CMD.
         monkeypatch.setattr(
             pulp.COIN_CMD, "available", lambda self: "/usr/bin/cbc", raising=False
         )
+        monkeypatch.setattr(
+            "rowvoi.setcover._solver_runs", lambda *a, **k: True, raising=True
+        )
         assert type(_find_solver(pulp)).__name__ == "COIN_CMD"
+
+    def test_skips_a_solver_that_is_found_but_cannot_run(self, monkeypatch):
+        """available() only locates a binary; a wrong-architecture one is killed.
+
+        pulp[cbc] installs a platform-specific CBC. On a mismatched host the
+        binary is found and then SIGKILLed, so preferring it on availability
+        alone hands back a solver that raises PulpSolverError inside solve().
+        """
+        pulp = pytest.importorskip("pulp")
+
+        monkeypatch.setattr(
+            pulp.COIN_CMD, "available", lambda self: "/usr/bin/cbc", raising=False
+        )
+        monkeypatch.setattr(
+            "rowvoi.setcover._solver_runs",
+            lambda _pulp, solver: type(solver).__name__ != "COIN_CMD",
+            raising=True,
+        )
+
+        found = _find_solver(pulp)
+
+        assert found is not None
+        assert type(found).__name__ != "COIN_CMD"
 
     def test_falls_through_to_the_bundled_solver(self):
         pulp = pytest.importorskip("pulp")
