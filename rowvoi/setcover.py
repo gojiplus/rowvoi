@@ -10,6 +10,7 @@ import logging
 import math
 import random
 import time
+import warnings
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from types import ModuleType
@@ -58,16 +59,50 @@ def _find_solver(pulp: ModuleType, *, time_limit: float | None = None) -> Any | 
         if cls is None:
             continue
         try:
-            solver = cls(**kwargs)
+            # PULP_CBC_CMD warns on construction from PuLP 3, and a caller
+            # running under `filterwarnings = ["error"]` would otherwise see
+            # that notice raise and be swallowed below as "unusable" --
+            # leaving no solver at all on a machine where one works.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                solver = cls(**kwargs)
         except Exception:  # pragma: no cover - solver refuses construction
             logger.debug("solver %s could not be constructed", name, exc_info=True)
             continue
         # `available()` returns a path or False/None, not a strict bool. A
         # stock install has COIN_CMD unavailable, which is exactly the case
         # that otherwise surfaces as PulpSolverError deep inside solve().
-        if solver.available():
+        if solver.available() and _solver_runs(pulp, solver):
             return solver
     return None
+
+
+def _solver_runs(pulp: ModuleType, solver: Any) -> bool:
+    """Check the solver can actually solve, not merely that a binary exists.
+
+    ``available()`` only looks for the executable. The CBC that ``pulp[cbc]``
+    installs is architecture-specific, and a mismatched build is found and then
+    killed by the OS, so the check has to be a solve rather than a lookup.
+
+    Args:
+        pulp: The imported ``pulp`` module.
+        solver: A constructed solver instance.
+
+    Returns:
+        True when a one-variable problem solves cleanly.
+    """
+    try:
+        # PuLP 3 deprecates several constructors it still uses itself; the
+        # probe is internal machinery, so its notices are not the caller's.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            probe = pulp.LpProblem("solver_probe", pulp.LpMinimize)
+            probe += pulp.LpVariable("x", lowBound=0)
+            probe.solve(solver)
+    except Exception:
+        logger.debug("solver %s could not solve a probe", solver, exc_info=True)
+        return False
+    return True
 
 
 @dataclass

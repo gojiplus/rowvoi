@@ -53,7 +53,10 @@ Documentation = "https://gojiplus.github.io/rowvoi/"
 
 [project.optional-dependencies]
 optimization = [
-    "pulp>=2.7.0",
+    # The [cbc] extra ships the CBC binary. Without it the only usable solver
+    # is PULP_CBC_CMD, which pulp 3.x deprecates -- and constructing it warns,
+    # which under filterwarnings = ["error"] leaves no solver at all.
+    "pulp[cbc]>=3.0",
 ]
 claude = [
     "anthropic>=0.116.0",
