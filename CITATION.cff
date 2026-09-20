@@ -10,7 +10,6 @@ type: software
 authors:
   - given-names: Gaurav
     family-names: Sood
-    email: contact@gsood.com
     orcid: 'https://orcid.org/0000-0002-2764-5127'
 identifiers:
   - type: url
