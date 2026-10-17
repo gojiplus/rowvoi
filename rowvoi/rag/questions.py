@@ -1,6 +1,6 @@
 """Clarifying questions: ask the one question that best splits the candidates.
 
-The RAG analogue of "which column should I observe next". When the retriever
+The RAG analog of "which column should I observe next". When the retriever
 returns k chunks with near-tied scores, the posterior over "which one actually
 answers the query" is flat. Stuffing all k into the context or guessing the top
 one both discard that ambiguity; asking one good question resolves it.

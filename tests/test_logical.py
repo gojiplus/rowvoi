@@ -118,7 +118,7 @@ class TestKeyProblem:
 
         This previously caught ImportError, which `_ilp` swallowed internally
         before returning a greedy key -- so the skip never fired and the test
-        silently asserted greedy behaviour instead.
+        silently asserted greedy behavior instead.
         """
         problem = KeyProblem(complex_df, [0, 1, 2])
 

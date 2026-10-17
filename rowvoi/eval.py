@@ -155,7 +155,7 @@ def compute_gold_next_column_probabilistic(
     *,
     candidate_cols: Sequence[ColName] | None = None,
     # Part of the documented API; the current implementation delegates to the
-    # model's suggestion, which computes MI, so only the default is honoured.
+    # model's suggestion, which computes MI, so only the default is honored.
     objective: Literal["mi", "expected_entropy_reduction"] = "mi",  # noqa: ARG001
 ) -> ColName:
     """Compute the 'gold standard' next column under a model.

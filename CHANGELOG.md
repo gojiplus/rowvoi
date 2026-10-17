@@ -41,11 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ln(m) approximation and ILP is exact, so this substituted one algorithm for
   the other under the name the caller asked for. Two concrete consequences:
   `test_ilp_algorithm` had a `pytest.skip` that could never fire, so it passed
-  while asserting greedy behaviour and the ILP code was never executed; and
+  while asserting greedy behavior and the ILP code was never executed; and
   `compute_gold_key` could return a greedy key as the "optimal" baseline,
   making `KeyEvalResult.optimality_gap` wrong — possibly negative, showing a
   method beating the optimum. `find_key(strategy="ilp")` now raises
-  `SolverUnavailableError`. **This is a behaviour change** for anyone relying
+  `SolverUnavailableError`. **This is a behavior change** for anyone relying
   on the silent fallback.
 - `compute_gold_key` no longer falls back to greedy either: it tries ILP then
   exhaustive search and raises if neither exact strategy succeeds. Pass
