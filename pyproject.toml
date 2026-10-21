@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.12.5,<0.13"]
+requires = ["uv_build>=0.12.5,<0.14"]
 build-backend = "uv_build"
 
 [project]
@@ -157,3 +157,6 @@ dev = [
 # The canon wheel job installs the built wheel with `--group test` in a clean
 # venv, so this group must exist and carry everything the tests import.
 test = ["pytest>=8", "pytest-cov>=6"]
+
+[tool.codespell]
+builtin = "clear,rare,en-GB_to_en-US"

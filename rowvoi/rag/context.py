@@ -1,6 +1,6 @@
 """Minimal sufficient context: cover the claims with the fewest/cheapest chunks.
 
-The RAG analogue of :func:`rowvoi.find_key`. Where key-finding covers row pairs
+The RAG analog of :func:`rowvoi.find_key`. Where key-finding covers row pairs
 with columns, this covers *claims* with *chunks* -- same weighted set cover,
 same solvers, cost measured in tokens instead of acquisition effort.
 

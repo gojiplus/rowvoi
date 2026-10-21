@@ -2,7 +2,7 @@
 
 Runs against a stub client, so no API key and no network are needed. What is
 verified here is the request we build and how we parse the reply -- not the
-model's judgement.
+model's judgment.
 """
 
 import json
