@@ -8,9 +8,10 @@ claims. The seven strategies and the greedy path planner are common to both.
 import itertools
 import logging
 import math
+import os
 import random
+import shutil
 import time
-import warnings
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from types import ModuleType
@@ -23,12 +24,6 @@ SetName = Hashable
 Strategy = Literal["greedy", "exact", "ilp", "sa", "ga", "lp", "hybrid"]
 
 logger = logging.getLogger(__name__)
-
-# Solvers to try, in order. COIN_CMD is not deprecated but finds CBC only on
-# PATH (or via the `pulp[cbc]` extra); PULP_CBC_CMD ships a bundled CBC but is
-# removed in PuLP 4, hence the getattr lookup rather than direct attribute
-# access.
-_SOLVER_NAMES = ("COIN_CMD", "PULP_CBC_CMD")
 
 
 class SolverUnavailableError(RuntimeError):
@@ -54,26 +49,19 @@ def _find_solver(pulp: ModuleType, *, time_limit: float | None = None) -> Any | 
     if time_limit:
         kwargs["timeLimit"] = time_limit
 
-    for name in _SOLVER_NAMES:
-        cls = getattr(pulp, name, None)
-        if cls is None:
-            continue
+    paths = [None]
+    for directory in os.get_exec_path():
+        candidate = shutil.which("cbc", path=directory)
+        if candidate and candidate not in paths:
+            paths.append(candidate)
+    for path in paths:
         try:
-            # PULP_CBC_CMD warns on construction from PuLP 3, and a caller
-            # running under `filterwarnings = ["error"]` would otherwise see
-            # that notice raise and be swallowed below as "unusable" --
-            # leaving no solver at all on a machine where one works.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                solver = cls(**kwargs)
-        except Exception:  # pragma: no cover - solver refuses construction
-            logger.debug("solver %s could not be constructed", name, exc_info=True)
-            continue
-        # `available()` returns a path or False/None, not a strict bool. A
-        # stock install has COIN_CMD unavailable, which is exactly the case
-        # that otherwise surfaces as PulpSolverError deep inside solve().
-        if solver.available() and _solver_runs(pulp, solver):
-            return solver
+            solver = pulp.COIN_CMD(path=path, **kwargs)
+            if solver.available() and _solver_runs(pulp, solver):
+                return solver
+        except Exception:
+            logger.debug("CBC could not be initialized", exc_info=True)
+
     return None
 
 
@@ -92,17 +80,13 @@ def _solver_runs(pulp: ModuleType, solver: Any) -> bool:
         True when a one-variable problem solves cleanly.
     """
     try:
-        # PuLP 3 deprecates several constructors it still uses itself; the
-        # probe is internal machinery, so its notices are not the caller's.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            probe = pulp.LpProblem("solver_probe", pulp.LpMinimize)
-            probe += pulp.LpVariable("x", lowBound=0)
-            probe.solve(solver)
+        probe = pulp.LpProblem("solver_probe", pulp.LpMinimize)
+        probe += probe.add_variable("x", lowBound=0)
+        stats = probe.solve(solver)
+        return stats.status == pulp.LpSolveStatus.Optimal
     except Exception:
         logger.debug("solver %s could not solve a probe", solver, exc_info=True)
         return False
-    return True
 
 
 @dataclass
@@ -397,19 +381,12 @@ class SetCoverProblem:
 
         prob = pulp.LpProblem("SetCover", pulp.LpMinimize)
 
-        # PuLP 4 moves variable creation onto the problem and deprecates
-        # constructing LpVariable directly. Prefer the new call where it
-        # exists so we neither warn on new PuLP nor break on the >=2.7 floor.
-        add_variable = getattr(prob, "add_variable", None)
-
-        def _binary(varname: str):
-            if add_variable is not None:
-                return add_variable(varname, cat="Binary")
-            return pulp.LpVariable(varname, cat="Binary")  # pragma: no cover
-
         # Decision variables: x[name] = 1 if that set is selected. Index-based
         # variable names keep pulp happy with arbitrary hashable set names.
-        x = {name: _binary(f"x_{i}") for i, name in enumerate(self.names)}
+        x = {
+            name: prob.add_variable(f"x_{i}", cat="Binary")
+            for i, name in enumerate(self.names)
+        }
 
         # Objective: minimize total cost
         prob += pulp.lpSum(x[name] * self.cost(name) for name in self.names)
@@ -428,7 +405,10 @@ class SetCoverProblem:
         else:
             # Relaxed: count covered elements
             target = len(self.universe) * (1 - epsilon)
-            y = {element: _binary(f"y_{i}") for i, element in enumerate(elements)}
+            y = {
+                element: prob.add_variable(f"y_{i}", cat="Binary")
+                for i, element in enumerate(elements)
+            }
             for element in elements:
                 if covering[element]:
                     prob += y[element] <= pulp.lpSum(
@@ -438,9 +418,9 @@ class SetCoverProblem:
                     prob += y[element] == 0
             prob += pulp.lpSum(y[element] for element in elements) >= target
 
-        prob.solve(solver)
+        stats = prob.solve(solver)
 
-        if prob.status == pulp.LpStatusOptimal:
+        if stats.status == pulp.LpSolveStatus.Optimal:
             # An unset variable reads back as None rather than 0.0.
             return [name for name in self.names if (x[name].value() or 0.0) > 0.5]
         return self._greedy(epsilon)
