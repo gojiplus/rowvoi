@@ -49,7 +49,7 @@ def _find_solver(pulp: ModuleType, *, time_limit: float | None = None) -> Any | 
     if time_limit:
         kwargs["timeLimit"] = time_limit
 
-    paths = [None]
+    paths: list[str | None] = [None]
     for directory in os.get_exec_path():
         candidate = shutil.which("cbc", path=directory)
         if candidate and candidate not in paths:
