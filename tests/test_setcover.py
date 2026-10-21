@@ -183,50 +183,51 @@ class TestSolverAvailability:
         with pytest.raises(SolverUnavailableError, match="pulp\\[cbc\\]"):
             problem.solve("ilp")
 
-    def test_prefers_the_non_deprecated_solver(self, monkeypatch):
+    def test_configures_cbc_with_the_time_limit(self, monkeypatch):
         pulp = pytest.importorskip("pulp")
+        monkeypatch.setattr(pulp.COIN_CMD, "available", lambda self: "/usr/bin/cbc")
+        monkeypatch.setattr("rowvoi.setcover._solver_runs", lambda *a, **k: True)
 
-        # Make COIN_CMD look available and runnable; the search should stop
-        # there rather than falling through to the deprecated PULP_CBC_CMD.
-        monkeypatch.setattr(
-            pulp.COIN_CMD, "available", lambda self: "/usr/bin/cbc", raising=False
-        )
-        monkeypatch.setattr(
-            "rowvoi.setcover._solver_runs", lambda *a, **k: True, raising=True
-        )
-        assert type(_find_solver(pulp)).__name__ == "COIN_CMD"
+        solver = _find_solver(pulp, time_limit=7)
 
-    def test_skips_a_solver_that_is_found_but_cannot_run(self, monkeypatch):
-        """available() only locates a binary; a wrong-architecture one is killed.
+        assert isinstance(solver, pulp.COIN_CMD)
+        assert solver.timeLimit == 7
+        assert solver.msg is False
 
-        pulp[cbc] installs a platform-specific CBC. On a mismatched host the
-        binary is found and then SIGKILLed, so preferring it on availability
-        alone hands back a solver that raises PulpSolverError inside solve().
-        """
+    def test_rejects_a_solver_that_is_found_but_cannot_run(self, monkeypatch):
         pulp = pytest.importorskip("pulp")
+        monkeypatch.setattr(pulp.COIN_CMD, "available", lambda self: "/usr/bin/cbc")
+        monkeypatch.setattr("rowvoi.setcover._solver_runs", lambda *a, **k: False)
 
+        assert _find_solver(pulp) is None
+
+    def test_falls_back_to_system_cbc_when_bundled_binary_fails(self, monkeypatch):
+        pulp = pytest.importorskip("pulp")
         monkeypatch.setattr(
-            pulp.COIN_CMD, "available", lambda self: "/usr/bin/cbc", raising=False
+            "rowvoi.setcover.shutil.which", lambda name, **kwargs: "/usr/bin/cbc"
         )
+        monkeypatch.setattr(pulp.COIN_CMD, "available", lambda self: self.path)
         monkeypatch.setattr(
             "rowvoi.setcover._solver_runs",
-            lambda _pulp, solver: type(solver).__name__ != "COIN_CMD",
-            raising=True,
+            lambda _pulp, solver: solver.path == "/usr/bin/cbc",
         )
 
-        found = _find_solver(pulp)
-
-        assert found is not None
-        assert type(found).__name__ != "COIN_CMD"
-
-    def test_falls_through_to_the_bundled_solver(self):
-        pulp = pytest.importorskip("pulp")
-        # On a stock install COIN_CMD.available() is None, so the bundled
-        # PULP_CBC_CMD is what actually gets used.
         solver = _find_solver(pulp)
-        if solver is None:
-            pytest.skip("no LP solver available")
-        assert solver.available()
+
+        assert solver is not None
+        assert solver.path == "/usr/bin/cbc"
+
+    def test_installed_cbc_solves_weighted_cover(self):
+        pytest.importorskip("pulp")
+        problem = SetCoverProblem(
+            {"all": {1, 2}, "first": {1}, "second": {2}},
+            costs={"all": 5, "first": 1, "second": 1},
+        )
+
+        selected = problem.solve("ilp")
+
+        assert set(selected) == {"first", "second"}
+        assert problem.is_cover(selected)
 
     def test_other_strategies_are_unaffected_by_a_missing_solver(self, monkeypatch):
         # Only "ilp" depends on a solver; the rest must keep working.
