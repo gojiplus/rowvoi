@@ -11,7 +11,7 @@ matrix is structurally the same object as a table of candidate rows.
 """
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -205,7 +205,7 @@ def answer_likelihoods(
     if question not in frame.columns:
         raise KeyError(f"Unknown question: {question!r}")
 
-    column = frame[question]
+    column = cast("pd.Series", frame[question])
     matches = (column == value).to_numpy()
 
     n_distinct = column.nunique(dropna=False)
