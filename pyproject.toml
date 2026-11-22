@@ -7,7 +7,7 @@ name = "rowvoi"
 description = "Interactive disambiguation of rows in a dataset using value-of-information policies"
 readme = "README.md"
 authors = [
-    { name = "Gaurav Sood", email = "contact@gsood.com" }
+    { name = "Gaurav Sood" }
 ]
 license = "MIT"
 license-files = ["LICENSE"]
